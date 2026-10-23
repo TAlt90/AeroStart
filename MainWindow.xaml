@@ -1,0 +1,211 @@
+<Window x:Class="AeroStart.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:AeroStart.Models"
+        Title="AeroStart" Icon="/AeroStart;component/Assets/AeroStart.ico" Width="650" Height="610" MinWidth="650" MaxWidth="650" MinHeight="610" MaxHeight="610" SizeToContent="Manual"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" FontFamily="Segoe UI" FontSize="13"
+        Foreground="{DynamicResource ForegroundBrush}" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        ShowInTaskbar="False" ResizeMode="NoResize" Topmost="True"
+        Loaded="Window_Loaded" Deactivated="Window_Deactivated" PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewMouseMove="Window_PreviewMouseMove" PreviewMouseDown="Window_PreviewMouseDown">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/AeroControls.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <Style x:Key="SystemToolButton" TargetType="Button" BasedOn="{StaticResource MenuButton}">
+        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      </Style>
+      <DataTemplate x:Key="SystemToolTemplate" DataType="{x:Type models:SystemToolItem}">
+        <Button Style="{StaticResource SystemToolButton}" Click="SystemTool_Click">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Image Source="{Binding Icon}" Width="20" Height="20" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+            <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"/>
+          </Grid>
+        </Button>
+      </DataTemplate>
+    </ResourceDictionary>
+  </Window.Resources>
+  <Grid ClipToBounds="True" Background="Transparent">
+  <Border x:Name="GlassFrame" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid Margin="8">
+      <Grid.RowDefinitions><RowDefinition Height="62"/><RowDefinition Height="*"/><RowDefinition Height="58"/></Grid.RowDefinitions>
+      <Border Grid.RowSpan="3" Height="150" VerticalAlignment="Top" Margin="-7,-7,-7,0" CornerRadius="7" Background="{DynamicResource ReflectionBrush}" IsHitTestVisible="False"/>
+      <Border Grid.RowSpan="3" Margin="-6" CornerRadius="6" BorderBrush="{DynamicResource GlassEdgeBrush}" BorderThickness="1" IsHitTestVisible="False"/>
+      <Button x:Name="ProfileButton" Grid.Row="0" Margin="10,0,10,7" Padding="5,2" HorizontalAlignment="Left" MaxWidth="440" HorizontalContentAlignment="Left"
+              Style="{StaticResource MenuButton}" Click="ProfileButton_Click" PreviewMouseRightButtonUp="ProfileButton_RightClick"
+              AutomationProperties.Name="Kontomenü öffnen">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Border Width="48" Height="48" CornerRadius="7" Padding="2" Background="{DynamicResource SearchBrush}" BorderBrush="{DynamicResource GlassEdgeBrush}" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center">
+          <Border.Effect><DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="2" Opacity="0.25"/></Border.Effect>
+          <Image x:Name="UserProfileImage" Width="42" Height="42" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+            <Image.Clip><RectangleGeometry Rect="0,0,42,42" RadiusX="4" RadiusY="4"/></Image.Clip>
+          </Image>
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="350">
+          <TextBlock x:Name="UserNameText" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+          <TextBlock Text="{Binding Text, ElementName=AccountEmailText}" Visibility="{Binding Visibility, ElementName=AccountEmailText}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,2,0,0"/>
+        </StackPanel>
+      </Grid>
+      </Button>
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="196"/></Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Alle Programme" FontWeight="SemiBold" Margin="9,8,0,9"/>
+            <ListBox x:Name="ProgramsList" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource ForegroundBrush}"
+                     VerticalAlignment="Stretch" VerticalContentAlignment="Top" MouseDoubleClick="ProgramsList_MouseDoubleClick"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True"
+                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                  <Setter Property="Padding" Value="7,6"/>
+                  <Setter Property="Margin" Value="1"/>
+                  <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                  <Setter Property="Template"><Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                      <Border x:Name="ItemBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter/>
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                          <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                          <Setter Property="Foreground" Value="{DynamicResource HoverTextBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                          <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectedBrush}"/>
+                          <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                          <Setter Property="Foreground" Value="{DynamicResource HoverTextBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Setter.Value></Setter>
+                </Style>
+              </ListBox.ItemContainerStyle>
+              <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Image Source="{Binding Icon}" Width="32" Height="32" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                <TextBlock Text="{Binding Category}" TextTrimming="CharacterEllipsis" FontSize="10" Margin="0,2,0,0" Opacity="0.8"/></StackPanel>
+              </Grid></DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+        <Border Grid.Column="1" Background="{DynamicResource SidebarBrush}" CornerRadius="0,5,5,0" Padding="7,7,0,7">
+          <StackPanel>
+            <Button Style="{StaticResource RightButton}" Content="Benutzerordner" Tag="&#xE77B;" Click="UserFolder_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Dokumente" Tag="&#xE8A5;" Click="Documents_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Bilder" Tag="&#xEB9F;" Click="Pictures_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Computer" Tag="&#xE7F4;" Click="Computer_Click"/>
+            <Separator/>
+            <Button Style="{StaticResource RightButton}" Content="Systemsteuerung" Tag="&#xE713;" Click="ControlPanel_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Einstellungen" Tag="&#xE115;" Click="Settings_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Programme entfernen" Tag="&#xE74D;" Click="UninstallPrograms_Click"/>
+            <Button x:Name="SystemToolsButton" Padding="9,9" MouseEnter="SystemToolsButton_MouseEnter" MouseLeave="SystemToolsRegion_MouseLeave" Click="SystemToolsButton_Click" PreviewKeyDown="SystemToolsButton_PreviewKeyDown" AutomationProperties.Name="Systemwerkzeuge">
+              <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource MenuButton}">
+                  <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsOpen, ElementName=SystemToolsMenu}" Value="True">
+                      <Setter Property="Background" Value="{DynamicResource SelectedBrush}"/>
+                      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Button.Style>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="27"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Systemwerkzeuge" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="›" FontSize="18" Margin="8,0,0,0" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource RightButton}" Content="Ausführen ..." Tag="&#xE756;" Click="Run_Click"/>
+            <Separator/>
+            <Button Style="{StaticResource RightButton}" Content="Sperren" Tag="&#xE72E;" Click="Lock_Click"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+      <Grid Grid.Row="2" Margin="1,9,1,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Border x:Name="SearchFieldFrame" Background="{DynamicResource SearchBrush}" CornerRadius="4" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,0,12,0" Height="36" VerticalAlignment="Center">
+          <DockPanel><TextBlock DockPanel.Dock="Right" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource SecondaryTextBrush}" Margin="4,0,9,0" VerticalAlignment="Center"/>
+            <TextBox x:Name="SearchBox" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource ForegroundBrush}" CaretBrush="{DynamicResource ForegroundBrush}"
+                     SelectionBrush="{DynamicResource AccentBrush}" FontSize="14" Padding="9,0" MinHeight="30" VerticalContentAlignment="Center" TextWrapping="NoWrap" AcceptsReturn="False"
+                     TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_GotKeyboardFocus" ToolTip="Programme durchsuchen" AutomationProperties.Name="Programme durchsuchen"/>
+          </DockPanel>
+        </Border>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button Style="{StaticResource RightButton}" Content="Herunterfahren" Tag="&#xE7E8;" BorderBrush="{DynamicResource BorderBrush}" Click="Shutdown_Click"/>
+          <Button Style="{StaticResource MenuButton}" Padding="9,9" Margin="3,1,0,1" BorderBrush="{DynamicResource BorderBrush}" Click="PowerDropdown_Click" ToolTip="Weitere Energieoptionen" AutomationProperties.Name="Weitere Energieoptionen">
+            <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+            <Button.ContextMenu>
+              <ContextMenu x:Name="PowerMenu">
+                <MenuItem Header="Neustarten" Click="Restart_Click"><MenuItem.Icon><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE777;"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Energie sparen" Click="Sleep_Click"><MenuItem.Icon><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE708;"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Abmelden" Click="SignOut_Click"><MenuItem.Icon><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8AC;"/></MenuItem.Icon></MenuItem>
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
+        </StackPanel>
+      </Grid>
+      <Popup x:Name="AccountMenu" Placement="Top" PlacementTarget="{Binding ElementName=ProfileButton}" VerticalOffset="-8"
+             StaysOpen="False" AllowsTransparency="True" PopupAnimation="None" Opened="AccountMenu_Opened" Closed="AccountMenu_Closed">
+        <Border x:Name="AccountMenuContent" Width="420" Padding="20" CornerRadius="12" Background="{DynamicResource PopupBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" TextElement.Foreground="{DynamicResource ForegroundBrush}"
+                PreviewKeyDown="AccountMenu_PreviewKeyDown" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,20">
+              <Button DockPanel.Dock="Right" Style="{StaticResource MenuButton}" Padding="10,6" Content="Abmelden" Click="SignOut_Click"/>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid Width="24" Height="24" Margin="0,0,9,0" AutomationProperties.Name="Microsoft">
+                  <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                  <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                  <Rectangle Fill="#F25022" Margin="0,0,1,1"/><Rectangle Grid.Column="1" Fill="#7FBA00" Margin="1,0,0,1"/>
+                  <Rectangle Grid.Row="1" Fill="#00A4EF" Margin="0,1,1,0"/><Rectangle Grid.Row="1" Grid.Column="1" Fill="#FFB900" Margin="1,1,0,0"/>
+                </Grid>
+                <TextBlock Text="Microsoft" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center"/>
+              </StackPanel>
+            </DockPanel>
+            <Grid Margin="0,0,0,18">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Image Source="{Binding Source, ElementName=UserProfileImage}" Width="68" Height="68" HorizontalAlignment="Left" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                <Image.Clip><EllipseGeometry Center="34,34" RadiusX="34" RadiusY="34"/></Image.Clip>
+              </Image>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Text, ElementName=UserNameText}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock x:Name="AccountEmailText" Visibility="Collapsed" Margin="0,5,0,0" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Margin="0,7,0,0" FontSize="14">
+                  <Hyperlink NavigateUri="https://account.microsoft.com/" RequestNavigate="MicrosoftAccount_RequestNavigate" Foreground="{DynamicResource AccentBrush}">Mein Microsoft-Konto</Hyperlink>
+                </TextBlock>
+              </StackPanel>
+            </Grid>
+            <Separator Margin="0,0,0,6"/>
+            <Button Style="{StaticResource RightButton}" Content="Profilbild ändern" Tag="&#xE77B;" Click="ChangeProfilePicture_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Kontoeinstellungen" Tag="&#xE713;" Click="AccountSettings_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="Benutzerkonten verwalten" Tag="&#xE716;" Click="ManageAccounts_Click"/>
+            <Button Style="{StaticResource RightButton}" Content="PC sperren" Tag="&#xE72E;" Click="Lock_Click"/>
+          </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </Popup>
+      <Popup x:Name="SystemToolsMenu" Placement="Custom" StaysOpen="True" AllowsTransparency="True" Focusable="False" Closed="SystemToolsMenu_Closed">
+        <Border x:Name="SystemToolsFlyoutContent" Width="280" Background="{DynamicResource PopupBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4"
+                TextElement.Foreground="{DynamicResource ForegroundBrush}"
+                MouseEnter="SystemToolsFlyout_MouseEnter" MouseLeave="SystemToolsRegion_MouseLeave" PreviewKeyDown="SystemToolsMenu_PreviewKeyDown">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
+            <ItemsControl x:Name="SystemToolsItems" ItemTemplate="{StaticResource SystemToolTemplate}" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+          </ScrollViewer>
+        </Border>
+      </Popup>
+    </Grid>
+  </Border>
+  </Grid>
+</Window>

@@ -1,0 +1,24 @@
+<DrawingImage xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+  <DrawingImage.Drawing>
+    <DrawingGroup>
+      <GeometryDrawing Brush="Transparent" Geometry="M0,0 H256 V256 H0 Z"/>
+      <GeometryDrawing Geometry="F0 M108,20 L148,20 L238,232 L190,232 L172,186 L84,186 L66,232 L18,232 Z M128,73 L99,148 L157,148 Z">
+        <GeometryDrawing.Brush>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#96F4FF" Offset="0"/>
+            <GradientStop Color="#25C9F2" Offset="0.42"/>
+            <GradientStop Color="#0874CD" Offset="1"/>
+          </LinearGradientBrush>
+        </GeometryDrawing.Brush>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M111,25 L145,25 L185,119 L151,119 L128,60 L101,129 L66,129 Z">
+        <GeometryDrawing.Brush>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#A6FFFFFF" Offset="0"/>
+            <GradientStop Color="#0DFFFFFF" Offset="1"/>
+          </LinearGradientBrush>
+        </GeometryDrawing.Brush>
+      </GeometryDrawing>
+    </DrawingGroup>
+  </DrawingImage.Drawing>
+</DrawingImage>
