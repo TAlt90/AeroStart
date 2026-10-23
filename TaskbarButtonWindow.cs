@@ -13,6 +13,7 @@ namespace AeroStart;
 
 internal sealed class TaskbarButtonWindow : Window
 {
+    private static readonly Brush NativeHitTestBackground = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0));
     private readonly Button _button;
     private readonly Action _clicked;
     private readonly HwndSource _source;
@@ -43,7 +44,7 @@ internal sealed class TaskbarButtonWindow : Window
         Title = "AeroStart-Startbutton";
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
-        Background = Brushes.Transparent;
+        Background = NativeHitTestBackground;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
         ShowActivated = false;
@@ -89,7 +90,7 @@ internal sealed class TaskbarButtonWindow : Window
     public void ApplyAppearance()
     {
         AppearanceService.Apply(this, null);
-        Background = Brushes.Transparent;
+        Background = NativeHitTestBackground;
         if (_source.CompositionTarget != null) _source.CompositionTarget.BackgroundColor = Colors.Transparent;
     }
 
@@ -98,7 +99,7 @@ internal sealed class TaskbarButtonWindow : Window
           <Grid Background="Transparent" SnapsToDevicePixels="True">
             <Grid x:Name="Visuals" IsHitTestVisible="False">
             <Border x:Name="Hover" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="4" Background="{DynamicResource HoverBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Opacity="0"/>
-            <Grid x:Name="Logo" Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" RenderTransformOrigin="0.5,0.5">
+            <Grid x:Name="Logo" Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" RenderTransformOrigin="0.5,0.5" Margin="0,2,0,0">
               <Grid.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
               <Path x:Name="Panes" Data="M0,0 H11.5 V11.5 H0 Z M12.5,0 H24 V11.5 H12.5 Z M0,12.5 H11.5 V24 H0 Z M12.5,12.5 H24 V24 H12.5 Z">
                 <Path.Fill>

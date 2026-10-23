@@ -44,7 +44,7 @@ internal sealed class TaskbarButtonVisualState
     {
         if (_pressed == value) return;
         _pressed = value;
-        var milliseconds = value ? 65 : 110;
+        var milliseconds = value ? 200 : 280;
         Animate(_scale, ScaleTransform.ScaleXProperty, value ? 0.8 : 1, milliseconds);
         Animate(_scale, ScaleTransform.ScaleYProperty, value ? 0.8 : 1, milliseconds);
         for (var i = 0; i < _normal.Length; i++)
