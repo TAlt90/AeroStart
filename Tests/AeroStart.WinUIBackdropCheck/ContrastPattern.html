@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Acrylic-Kantenreferenz – Browser hinter das WinUI-Fenster legen</title>
+<style>
+html,body{margin:0;width:100%;min-height:100%;font:20px sans-serif;background:white;color:black}
+header{padding:12px;background:#ffff00}
+.band{height:230px;position:relative}
+.coarse{background:repeating-linear-gradient(90deg,#000 0px,#000 160px,#fff 160px,#fff 320px)}
+.medium{background:repeating-linear-gradient(90deg,#000 0px,#000 40px,#fff 40px,#fff 80px)}
+.fine{background:repeating-linear-gradient(90deg,#000 0px,#000 8px,#fff 8px,#fff 16px)}
+.label{position:absolute;top:0;left:0;background:#ffff00;color:#000;padding:3px}
+</style>
+</head>
+<body>
+<header>Browser maximieren. WinUI-Test davor aktivieren, rechts und links Muster sichtbar lassen. Bekannte Kanten im freien rechten Prüfbereich mit den unbedeckten Kanten vergleichen. Ein/Aus ist KEIN transparenter Schärfevergleich.</header>
+<div class="band coarse"><span class="label">160 px – große Schwarzweißkanten</span></div>
+<div class="band medium"><span class="label">40 px – mittlere Kanten</span></div>
+<div class="band fine"><span class="label">8 px – feine Streifen</span></div>
+</body>
+</html>

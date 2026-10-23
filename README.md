@@ -9,6 +9,15 @@ Erster funktionsfähiger WPF-Prototyp für Windows 11, geschrieben in C# / .NET 
 - Paketfreie Featuretests: `dotnet run --project Tests\AeroStart.FeatureChecks\AeroStart.FeatureChecks.csproj` (optional `-c Release`). Prüft auch alte Einstellungen, Speicherfehler, tatsächliche LNK-Metadaten, UAC-Abbruchklassifikation und Brush-Isolation, ohne Programme/UAC/Explorer zu starten.
 - Manuell unter Windows prüfen: Deckkraft 30/100 über hellen und dunklen Desktopinhalten, Hochkontrast/Themewechsel, Texte/Icons/Profilbild und alle Popupflächen; Rechtsklick sowie Menütaste/Umschalt+F10, Escape/Außenklick, Pin/Lösen und Neustart, Suche/Pfeiltasten/Enter; echte UAC-Zustimmung und Abbruch sowie Explorer-Auswahl bei LNK/URL. Taskleistenposition, Klickzustellung und Animationen auf allen Monitoren müssen unverändert bleiben.
 
+### Windows-Start-Pins: lesender Import (Phase 1)
+Beim Öffnen zeigt AeroStart zusätzlich die tatsächlichen Windows-Pins unter **Angeheftet**, auch außerhalb des Programmkatalogs. `Export-StartLayout` läuft ausschließlich lesend in einem separaten, nicht sichtbaren Prozess mit zehn Sekunden Timeout. Temporäre JSON-Dateien werden entfernt. `desktopAppLink` wird einschließlich Umgebungsvariablen aufgelöst; LNK-Start und Icons verwenden die vorhandene Shell-Logik. `packagedAppId` wird über `shell:AppsFolder` gestartet und mit Shell-Anzeigenamen/Icons dargestellt, soweit auflösbar; andernfalls bleibt die Paketidentität beziehungsweise das Ersatzsymbol sichtbar.
+
+Windows-Reihenfolge zuerst, anschließend lokale Pins; gleiche normalisierte Pfade beziehungsweise identische Paket-IDs werden innerhalb **Angeheftet** dedupliziert. **Alle Programme** bleibt unverändert und darf dieselben Programme enthalten. Windows-Pins sind intern und sichtbar von lokalen Pins getrennt. Ihre Windows-Anheftung lässt sich in Phase 1 nicht über AeroStart lösen; vorhandene lokale Kontextaktionen bleiben für lokale Einträge erhalten. Es wird keine Windows-Pin-Änderung behauptet oder ausgeführt.
+
+Der Sitzungscache wird beim Öffnen höchstens alle 30 Sekunden asynchron erneuert (kein Timer, kein Katalog-Vollscan, nur ein Export gleichzeitig). Änderungen kurz nach einem Export werden beim nächsten Öffnen nach Ablauf dieser Frist sichtbar. Bei Fehlern/Timeout bleiben der letzte erfolgreiche Stand und lokale Pins erhalten; ein nichtmodaler Hinweis erscheint. Nach einem Neustart ohne erfolgreichen Export sind nur lokale Pins verfügbar.
+
+Live-Prüfung ohne Programmstart: `dotnet run --project Tests\AeroStart.FeatureChecks\AeroStart.FeatureChecks.csproj -- --windows-pins`. Hier wurden 18 Windows-Pins einschließlich **Chronicles of Arcadia** importiert; dessen LNK existiert und das EXE-Ziel wurde aufgelöst. Anzeige ohne Katalogeintrag ist geprüft; tatsächlicher Spielstart und optische Icon-Abnahme bleiben manuell. Phase 2 (Windows-Pins anheften/lösen) ist nicht implementiert.
+
 ## Voraussetzungen
 - Windows 11
 - Visual Studio 2022 (mit .NET-10-SDK) oder Visual Studio 2026

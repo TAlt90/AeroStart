@@ -71,20 +71,24 @@ internal static class ProgramActions
         return normalized.ToArray();
     }
 
-    internal static List<ProgramListEntry> Entries(IEnumerable<StartItem> results, IEnumerable<string> pins)
+    internal static List<ProgramListEntry> Entries(IEnumerable<StartItem> results, IEnumerable<string> pins, IEnumerable<StartItem>? windowsPins = null)
     {
         var items = results.ToList();
         var identities = pins.Select(Identity).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var pinned = items.Where(item => File.Exists(item.Path) && identities.Contains(Identity(item.Path) ?? ""))
             .DistinctBy(item => Identity(item.Path), StringComparer.OrdinalIgnoreCase)
             .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase);
-        return pinned.Select(item => new ProgramListEntry(item, "Angeheftet"))
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var imported = (windowsPins ?? []).Where(item => seen.Add(Identity(item.Path) ?? item.Path))
+            .Select(item => new ProgramListEntry(item, "Angeheftet", true));
+        return imported.Concat(pinned.Where(item => seen.Add(Identity(item.Path) ?? item.Path)).Select(item => new ProgramListEntry(item, "Angeheftet")))
             .Concat(items.Select(item => new ProgramListEntry(item, "Alle Programme"))).ToList();
     }
 }
 
-internal sealed record ProgramListEntry(StartItem Item, string Section)
+internal sealed record ProgramListEntry(StartItem Item, string Section, bool IsWindowsPin = false)
 {
+    public string PinSource => Section != "Angeheftet" ? "" : IsWindowsPin ? "Windows-Start (nur gelesen)" : "Lokal in AeroStart";
     public string Name => Item.Name;
     public string Category => Item.Category;
     public System.Windows.Media.ImageSource Icon => Item.Icon;

@@ -55,7 +55,7 @@ public partial class MainWindow
             };
             menu.Items.Add(option);
         }
-        if (capabilities.Identity is { } identity)
+        if (!entry.IsWindowsPin && capabilities.Identity is { } identity)
         {
             var pinned = _menuSettings.PinnedPrograms.Any(path => StringComparer.OrdinalIgnoreCase.Equals(ProgramActions.Identity(path), identity));
             Add(pinned ? "Von Start lösen" : "An Start anheften", () =>

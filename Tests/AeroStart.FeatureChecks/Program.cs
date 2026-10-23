@@ -12,8 +12,29 @@ internal static class Program
     }
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
+        if (args.Contains("--backdrop-prototype"))
+        {
+            BackdropPrototype.Run();
+            return;
+        }
+        if (args.Contains("--windows-pins"))
+        {
+            var snapshot = new WindowsStartPins().RefreshAsync().GetAwaiter().GetResult();
+            Console.WriteLine("Windows export: " + (snapshot.Error ?? "OK") + "; pins=" + snapshot.Items.Count);
+            var arcadia = snapshot.Items.FirstOrDefault(item => item.Name.Contains("Chronicles of Arcadia", StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine("Arcadia imported=" + (arcadia is not null));
+            if (arcadia is not null)
+            {
+                Console.WriteLine("Arcadia path exists=" + File.Exists(arcadia.Path));
+                var resolved = ProgramActions.Inspect(arcadia);
+                Console.WriteLine("Arcadia existing EXE target resolved=" + (resolved.Administrator is not null));
+                Check(ProgramActions.Entries([], [], snapshot.Items).Any(entry => entry.Item == arcadia && entry.IsWindowsPin), "Arcadia outside catalog");
+                Console.WriteLine("Arcadia appears under Angeheftet without catalog; launch uses existing ShellExecute LNK path. Game not launched.");
+            }
+            return;
+        }
         var root = Path.Combine(Path.GetTempPath(), "AeroStart-FeatureChecks-" + Guid.NewGuid());
         Directory.CreateDirectory(root);
         try
@@ -42,6 +63,31 @@ internal static class Program
             }
             Check(ProgramActions.TogglePin([id, id.ToLowerInvariant()], id).Length == 0, "Remove duplicate pin identities");
             var item = new StartItem("Sample", exe, "Tests");
+            var importJson = System.Text.Json.JsonSerializer.Serialize(new { pinnedList = new object[] { new { desktopAppLink = exe }, new { packagedAppId = "Package_123!App" }, new { desktopAppLink = exe }, new { desktopAppLink = Path.Combine(root, "missing.lnk") } } });
+            var imported = WindowsStartPins.Parse(importJson, new Dictionary<string, string> { ["Package_123!App"] = "Packaged sample" });
+            Check(imported.Count == 2 && imported[0].Path == exe && imported[1].Name == "Packaged sample" && imported[1].Path == "shell:AppsFolder\\Package_123!App", "Import order/names/missing/dedup");
+            Environment.SetEnvironmentVariable("AEROSTART_PIN_TEST", root);
+            try
+            {
+                var expanded = WindowsStartPins.Parse("{\"pinnedList\":[{\"desktopAppLink\":\"%AEROSTART_PIN_TEST%\\\\Sample.exe\"}]}");
+                Check(expanded.Count == 1 && expanded[0].Path == exe, "Environment variable expansion");
+            }
+            finally { Environment.SetEnvironmentVariable("AEROSTART_PIN_TEST", null); }
+            var merged = ProgramActions.Entries([item], [id], imported);
+            Check(merged.Count(entry => entry.Section == "Angeheftet") == 2 && merged.Count(entry => entry.Section == "Alle Programme") == 1 && merged[0].IsWindowsPin, "Windows/local merge retains alphabetical duplicate");
+            var calls = 0;
+            var completion = new TaskCompletionSource<IReadOnlyList<StartItem>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var cache = new WindowsStartPins(() => { Interlocked.Increment(ref calls); return completion.Task; });
+            var first = cache.RefreshAsync();
+            Check(ReferenceEquals(first, cache.RefreshAsync()), "Single flight");
+            completion.SetResult(imported);
+            Check(first.GetAwaiter().GetResult().Items.Count == 2 && cache.RefreshAsync().GetAwaiter().GetResult().Items.Count == 2 && calls == 1, "Refresh cache");
+            var attempts = 0;
+            var fallback = new WindowsStartPins(() => ++attempts == 1 ? Task.FromResult(imported) : Task.FromException<IReadOnlyList<StartItem>>(new TimeoutException("test")), TimeSpan.Zero);
+            fallback.RefreshAsync().GetAwaiter().GetResult();
+            var failed = fallback.RefreshAsync().GetAwaiter().GetResult();
+            Check(failed.Error is not null && failed.Items.Count == 2, "Last good fallback");
+            Console.WriteLine("PASS: Windows pin parser, environment variables, package names, export order, merge/dedup, single-flight/cache and last-good timeout fallback.");
             var entries = ProgramActions.Entries([item, item], [id, id]);
             Check(entries.Count(entry => entry.Section == "Angeheftet") == 1 && entries.Count(entry => entry.Section == "Alle Programme") == 2, "Pin dedup and ordinary list preserved");
             var capabilities = ProgramActions.Inspect(item);
@@ -95,11 +141,17 @@ internal static class Program
             }
             var app = new AeroStart.App { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
             var menu = new AeroStart.MainWindow();
+            var frame = (System.Windows.Controls.Border)menu.FindName("GlassFrame");
+            var frameContent = (System.Windows.Controls.Grid)frame.Child;
+            Check(frame.BorderThickness == new System.Windows.Thickness(1)
+                && !frameContent.Children.OfType<System.Windows.Controls.Border>().Any(border => System.Windows.Controls.Grid.GetRowSpan(border) == 3 && border.BorderThickness != new System.Windows.Thickness(0)), "Exactly one outer menu contour");
             var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var actualItem = new StartItem("Executable", exe, "");
             typeof(AeroStart.MainWindow).GetField("_all", flags)!.SetValue(menu, new List<StartItem> { actualItem });
             menu.ApplySettings(new AppSettings { StartMenuOpacity = 30, PinnedPrograms = pins });
             Check(menu.Opacity == 1 && ((Brush)menu.Resources["PanelBrush"]).Opacity == (System.Windows.SystemParameters.HighContrast ? 1 : 0.3), "Actual WPF window foreground opacity untouched");
+            var sidebar = (System.Windows.Controls.Border)menu.FindName("MenuSidebar");
+            Check(sidebar.Background is SolidColorBrush { Color.A: 0 } && sidebar.Opacity == 1, "Sidebar uses common frame without additional tint");
             var programs = (System.Windows.Controls.ListBox)menu.FindName("ProgramsList");
             Check(programs.Items.Count == 2 && ((ProgramListEntry)programs.Items[0]).Section == "Angeheftet", "Actual grouped list updated immediately");
             var container = new System.Windows.Controls.ListBoxItem { DataContext = programs.Items[0] };
@@ -109,6 +161,7 @@ internal static class Program
             Check(context.Items.Cast<System.Windows.Controls.MenuItem>().Select(option => (string)option.Header).SequenceEqual(new[] { "Von Start lösen", "Als Administrator ausführen", "Dateispeicherort öffnen" }), "Actual context actions and pin label");
             context.IsOpen = false;
             menu.ApplySettings(new AppSettings());
+            Check(sidebar.Background is SolidColorBrush { Color.A: 0 }, "Sidebar remains untinted at full menu opacity");
             Check(programs.Items.Count == 1, "Unpin update retains ordinary entry");
             menu.Close();
             app.Shutdown();

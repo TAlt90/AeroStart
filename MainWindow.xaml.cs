@@ -187,7 +187,8 @@ public partial class MainWindow : Window
     private void ApplyFilter()
     {
         if (ProgramsList is null || SearchBox is null) return;
-        var results = ProgramActions.Entries(ProgramSearch.Filter(_all, SearchBox.Text), _menuSettings.PinnedPrograms);
+        var results = ProgramActions.Entries(ProgramSearch.Filter(_all, SearchBox.Text), _menuSettings.PinnedPrograms,
+            string.IsNullOrWhiteSpace(SearchBox.Text) ? _windowsPins : _windowsPins.Where(item => ProgramSearch.Filter([item], SearchBox.Text).Count > 0));
         var view = new System.Windows.Data.ListCollectionView(results);
         view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(ProgramListEntry.Section)));
         ProgramsList.ItemsSource = view;

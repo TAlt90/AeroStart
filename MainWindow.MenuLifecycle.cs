@@ -68,6 +68,7 @@ public partial class MainWindow
         Activate();
         ApplyFilter();
         FocusSearchBox();
+        _ = RefreshWindowsPinsAsync();
         if (!wasVisible || wasHiding || GlassFrame.Opacity < 1)
             AnimateMenu(true);
     }
