@@ -16,6 +16,8 @@ public sealed record AppSettings
     public bool ShowSystemTools { get; init; } = true;
     public bool AnimateMenu { get; init; } = true;
     public bool ReplaceStartButtons { get; init; }
+    public int StartMenuOpacity { get; init; } = 100;
+    public string[] PinnedPrograms { get; init; } = [];
     public KeyboardIntegrationMode KeyboardMode { get; init; } = KeyboardIntegrationMode.Stable;
 }
 
@@ -26,7 +28,9 @@ public sealed class SettingsService
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
     };
-    public string FilePath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AeroStart", "settings.json");
+    public SettingsService() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AeroStart", "settings.json")) { }
+    internal SettingsService(string filePath) => FilePath = filePath;
+    public string FilePath { get; }
     public AppSettings Current { get; private set; } = new();
     public string? LoadWarning { get; private set; }
     public event EventHandler? Changed;
@@ -52,13 +56,15 @@ public sealed class SettingsService
     public void Save(AppSettings settings)
     {
         Validate(settings);
+        var data = JsonSerializer.SerializeToUtf8Bytes(settings, Options);
+        if (data.Length > 64 * 1024) throw new ArgumentException("Die Einstellungsdatei ist zu groß.");
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
         var temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             {
-                JsonSerializer.Serialize(stream, settings, Options);
+                stream.Write(data);
                 stream.Flush(true);
             }
             File.Move(temporary, FilePath, overwrite: true);
@@ -73,6 +79,11 @@ public sealed class SettingsService
 
     private static void Validate(AppSettings settings)
     {
+        if (settings.StartMenuOpacity is < 30 or > 100 || settings.StartMenuOpacity % 5 != 0)
+            throw new ArgumentException("Die Startmenü-Deckkraft muss zwischen 30 und 100 Prozent in 5-Prozent-Schritten liegen.");
+        if (settings.PinnedPrograms is null || settings.PinnedPrograms.Length > 256
+            || settings.PinnedPrograms.Any(path => string.IsNullOrWhiteSpace(path) || path.Length > 1024))
+            throw new ArgumentException("Ungültige Liste angehefteter Programme (höchstens 256 Einträge).");
         if (!Enum.IsDefined(settings.StartMenu) || !Enum.IsDefined(settings.Monitor) || !Enum.IsDefined(settings.KeyboardMode))
             throw new ArgumentException("Unbekannte Startmenü- oder Monitorauswahl.");
     }

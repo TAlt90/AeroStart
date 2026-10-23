@@ -12,7 +12,7 @@ public static class AppearanceService
     private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private const string DwmKey = @"Software\Microsoft\Windows\DWM";
 
-    public static void Apply(Window window, HwndSource? source)
+    public static void Apply(Window window, HwndSource? source, int menuOpacity = 100)
     {
         var highContrast = SystemParameters.HighContrast;
         var dark = ReadSetting(PersonalizeKey, "AppsUseLightTheme", 1) == 0;
@@ -23,6 +23,7 @@ public static class AppearanceService
         if (accentEnabled && DwmGetColorizationColor(out var color, out _) >= 0)
             accent = Color.FromRgb((byte)(color >> 16), (byte)(color >> 8), (byte)color);
         var palette = CreatePalette(dark, glass, highContrast, accent);
+        ApplyBackgroundOpacity(palette, menuOpacity, highContrast);
         foreach (var key in palette.Keys) window.Resources[key] = palette[key];
         window.Background = window.AllowsTransparency || glass ? Brushes.Transparent : (Brush)palette["WindowBackgroundBrush"];
         if (source?.CompositionTarget != null)
@@ -103,6 +104,18 @@ public static class AppearanceService
             }
         }
         return resources;
+    }
+
+    internal static void ApplyBackgroundOpacity(ResourceDictionary palette, int percent, bool highContrast)
+    {
+        if (highContrast || percent == 100) return;
+        foreach (var key in new[] { "WindowBackgroundBrush", "PanelBrush", "SidebarBrush", "SearchBrush", "PopupBrush", "HoverBrush", "PressedBrush", "SelectedBrush", "ScrollTrackBrush", "ReflectionBrush" })
+        {
+            var brush = ((Brush)palette[key]).Clone();
+            brush.Opacity *= Math.Clamp(percent, 30, 100) / 100.0;
+            brush.Freeze();
+            palette[key] = brush;
+        }
     }
 
     private static bool ApplyDwm(HwndSource source, bool dark, bool transparency)

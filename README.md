@@ -2,6 +2,13 @@
 
 Erster funktionsfähiger WPF-Prototyp für Windows 11, geschrieben in C# / .NET 10.
 
+## v0.2.0: Deckkraft und Programm-Kontextmenü
+- **Darstellung → Startmenü-Deckkraft:** 30–100 Prozent in 5-Prozent-Schritten, Standard 100. Der Regler speichert sofort in der bestehenden `settings.json`; alte Dateien verwenden weiterhin 100 Prozent. Nur Menü-Hintergrundbrushes einschließlich Popup-/Hoverflächen ändern sich, nicht Texte, Icons, Profilbild, Fensterdeckkraft oder Taskleistenbuttons. Eine Textkontur verbessert den Kontrast bei niedriger Deckkraft; Hochkontrast erzwingt unveränderte deckende Systemfarben.
+- Rechtsklick auf vorhandene Programme: **An Start anheften / Von Start lösen**, **Als Administrator ausführen** für vorhandene EXE-Ziele (auch aus LNK mit Argumenten und Arbeitsverzeichnis), **Dateispeicherort öffnen** mit Explorer-Auswahl der ursprünglichen Verknüpfung/Datei. URL-Verknüpfungen erhalten keine Administratoraktion; paketierte/fehlende Dateipfade keine ungültigen Dateiaufrufe. UAC-Abbruch wird ohne Fehlermeldung behandelt. Normales Starten bleibt unverändert.
+- **Angeheftet** steht oben in derselben Programmliste; darunter bleibt **Alle Programme** alphabetisch erhalten. Suche filtert beide Abschnitte. Identitäten sind normalisierte absolute Dateipfade, nicht Anzeigenamen; höchstens 256 Anheftungen. Fehlende Programme verschwinden aus dem angehefteten Abschnitt, bleiben aber gespeichert und erscheinen bei Rückkehr am selben Pfad wieder. Verschobene Verknüpfungen müssen erneut angeheftet werden.
+- Paketfreie Featuretests: `dotnet run --project Tests\AeroStart.FeatureChecks\AeroStart.FeatureChecks.csproj` (optional `-c Release`). Prüft auch alte Einstellungen, Speicherfehler, tatsächliche LNK-Metadaten, UAC-Abbruchklassifikation und Brush-Isolation, ohne Programme/UAC/Explorer zu starten.
+- Manuell unter Windows prüfen: Deckkraft 30/100 über hellen und dunklen Desktopinhalten, Hochkontrast/Themewechsel, Texte/Icons/Profilbild und alle Popupflächen; Rechtsklick sowie Menütaste/Umschalt+F10, Escape/Außenklick, Pin/Lösen und Neustart, Suche/Pfeiltasten/Enter; echte UAC-Zustimmung und Abbruch sowie Explorer-Auswahl bei LNK/URL. Taskleistenposition, Klickzustellung und Animationen auf allen Monitoren müssen unverändert bleiben.
+
 ## Voraussetzungen
 - Windows 11
 - Visual Studio 2022 (mit .NET-10-SDK) oder Visual Studio 2026

@@ -32,7 +32,7 @@ public partial class MainWindow : Window
         GlassFrame.RenderTransform = _menuTranslation;
         _menuTranslation.Y = Height;
         GlassFrame.Opacity = 0;
-        AppearanceService.Apply(this, null);
+        ApplyMenuAppearance();
         UserNameText.Text = "Benutzerkonto";
         UserProfileImage.Source = UserProfileService.Fallback;
         SystemToolsItems.ItemsSource = SystemToolItem.CreateCatalog();
@@ -63,7 +63,7 @@ public partial class MainWindow : Window
         {
             _source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             _source?.AddHook(WndProc);
-            AppearanceService.Apply(this, _source);
+            ApplyMenuAppearance();
         };
         Closed += (_, _) =>
         {
@@ -83,7 +83,7 @@ public partial class MainWindow : Window
         if (msg is 0x001A or 0x031A or 0x031E or 0x0320) QueueAppearanceUpdate();
         if (msg == 0x001C && wParam == IntPtr.Zero)
         {
-            if (_allowHide) HideMenu();
+            if (_allowHide && _programContextMenu?.IsOpen != true) HideMenu();
         }
         return IntPtr.Zero;
     }
@@ -94,7 +94,7 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             _appearanceUpdatePending = false;
-            if (!_closed) AppearanceService.Apply(this, _source);
+            if (!_closed) ApplyMenuAppearance();
         }));
     }
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -123,13 +123,14 @@ public partial class MainWindow : Window
     }
     private void Window_Deactivated(object sender, EventArgs e)
     {
-        if (_allowHide && !_closingFlyouts && !AccountMenu.IsOpen && !SystemToolsMenu.IsOpen && !PowerMenu.IsOpen && SearchBox.ContextMenu?.IsOpen != true) HideMenu();
+        if (_allowHide && !_closingFlyouts && _programContextMenu?.IsOpen != true && !AccountMenu.IsOpen && !SystemToolsMenu.IsOpen && !PowerMenu.IsOpen && SearchBox.ContextMenu?.IsOpen != true) HideMenu();
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (_isHiding) { e.Handled = true; return; }
         if (e.Key == Key.Escape)
         {
+            if (_programContextMenu?.IsOpen == true) { _programContextMenu.IsOpen = false; e.Handled = true; return; }
             if (AccountMenu.IsOpen)
             {
                 AccountMenu.IsOpen = false;
@@ -186,8 +187,10 @@ public partial class MainWindow : Window
     private void ApplyFilter()
     {
         if (ProgramsList is null || SearchBox is null) return;
-        var results = ProgramSearch.Filter(_all, SearchBox.Text);
-        ProgramsList.ItemsSource = results;
+        var results = ProgramActions.Entries(ProgramSearch.Filter(_all, SearchBox.Text), _menuSettings.PinnedPrograms);
+        var view = new System.Windows.Data.ListCollectionView(results);
+        view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(ProgramListEntry.Section)));
+        ProgramsList.ItemsSource = view;
         ProgramsList.SelectedIndex = IsVisible && !_isHiding && results.Count > 0 ? 0 : -1;
         if (results.Count > 0) ProgramsList.ScrollIntoView(results[0]);
     }
@@ -198,9 +201,8 @@ public partial class MainWindow : Window
         {
             SearchBox.Clear();
             SearchBox.Select(0, 0);
-            ProgramsList.ItemsSource = _all;
+            ApplyFilter();
             ProgramsList.SelectedIndex = -1;
-            if (_all.Count > 0) ProgramsList.ScrollIntoView(_all[0]);
         }
         finally { _resettingSearch = false; }
     }
@@ -229,8 +231,8 @@ public partial class MainWindow : Window
     }
     private void LaunchSelectedOrFirst()
     {
-        var item = ProgramsList.SelectedItem as StartItem ?? ProgramsList.Items.Cast<StartItem>().FirstOrDefault();
-        if (item != null) Launch(item.Path);
+        var item = ProgramsList.SelectedItem as ProgramListEntry ?? ProgramsList.Items.Cast<ProgramListEntry>().FirstOrDefault();
+        if (item != null) Launch(item.Item.Path);
     }
     private void Launch(string target)
     {
@@ -279,6 +281,7 @@ public partial class MainWindow : Window
         _closingFlyouts = true;
         try
         {
+            if (_programContextMenu is { }) _programContextMenu.IsOpen = false;
             if (AccountMenu is { }) AccountMenu.IsOpen = false;
             CloseSystemTools();
             PowerMenu.IsOpen = false;

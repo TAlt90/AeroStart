@@ -55,6 +55,12 @@
           </StackPanel>
           <StackPanel x:Name="AppearancePage" Visibility="Collapsed">
             <TextBlock Text="Darstellung" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,16"/>
+            <Border Style="{StaticResource Section}"><StackPanel>
+              <TextBlock Text="Startmenü-Deckkraft" FontWeight="SemiBold"/>
+              <Slider x:Name="MenuOpacitySlider" Minimum="30" Maximum="100" TickFrequency="5" SmallChange="5" LargeChange="5" IsSnapToTickEnabled="True" Value="100" ValueChanged="MenuOpacity_Changed" Margin="0,12,0,4" AutomationProperties.Name="Startmenü-Deckkraft"/>
+              <TextBlock Text="{Binding Value, ElementName=MenuOpacitySlider, StringFormat={}{0:0} %}"/>
+              <TextBlock Text="Wird sofort gespeichert. Texte und Symbole bleiben deckend. Im Hochkontrastmodus bleiben die Hintergründe zum Schutz der Lesbarkeit vollständig deckend." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,0"/>
+            </StackPanel></Border>
             <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Design folgt Windows" FontWeight="SemiBold"/><TextBlock Text="Hell-/Dunkelmodus, Hochkontrast und Akzentfarbe werden automatisch übernommen." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
             <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Startmenü-Animation" FontWeight="SemiBold"/><RadioButton x:Name="AnimationOn" GroupName="Animation" Content="Aktiviert"/><RadioButton x:Name="AnimationOff" GroupName="Animation" Content="Deaktiviert"/></StackPanel></Border>
           </StackPanel>

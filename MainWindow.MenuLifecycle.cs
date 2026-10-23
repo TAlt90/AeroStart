@@ -20,6 +20,9 @@ public partial class MainWindow
     public void ApplySettings(AppSettings settings)
     {
         _animationEnabled = settings.AnimateMenu;
+        _menuSettings = settings;
+        ApplyMenuAppearance();
+        ApplyFilter();
         SystemToolsButton.Visibility = settings.ShowSystemTools ? Visibility.Visible : Visibility.Collapsed;
         if (!settings.ShowSystemTools) CloseSystemTools();
     }

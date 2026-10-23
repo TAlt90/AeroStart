@@ -10,6 +10,7 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsService _settings;
     private HwndSource? _source;
+    private bool _readingSettings;
 
     public SettingsWindow(SettingsService settings)
     {
@@ -45,7 +46,11 @@ public partial class SettingsWindow : Window
 
     private void ReadSettings()
     {
+        _readingSettings = true;
+        try
+        {
         var current = _settings.Current;
+        MenuOpacitySlider.Value = current.StartMenuOpacity;
         AeroMenu.IsChecked = current.StartMenu == StartMenuKind.AeroStart;
         WindowsMenu.IsChecked = current.StartMenu == StartMenuKind.Windows;
         MouseMonitor.IsChecked = current.Monitor == KeyboardMonitor.Mouse;
@@ -59,6 +64,16 @@ public partial class SettingsWindow : Window
         ExperimentalKeyboard.IsChecked = current.KeyboardMode == KeyboardIntegrationMode.Experimental;
         TaskbarButtonsOn.IsChecked = current.ReplaceStartButtons;
         TaskbarButtonsOff.IsChecked = !current.ReplaceStartButtons;
+        }
+        finally { _readingSettings = false; }
+    }
+
+    private void MenuOpacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_readingSettings || !IsLoaded) return;
+        try { _settings.Save(_settings.Current with { StartMenuOpacity = (int)(Math.Round(e.NewValue / 5) * 5) }); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        { StatusText.Text = "Speichern fehlgeschlagen: " + ex.Message; ReadSettings(); }
     }
 
     private void Category_Click(object sender, RoutedEventArgs e)

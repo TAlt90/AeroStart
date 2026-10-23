@@ -56,13 +56,18 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="196"/></Grid.ColumnDefinitions>
         <Border Grid.Column="0" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6">
           <DockPanel>
-            <TextBlock DockPanel.Dock="Top" Text="Alle Programme" FontWeight="SemiBold" Margin="9,8,0,9"/>
+            <TextBlock DockPanel.Dock="Top" Text="Programme" FontWeight="SemiBold" Margin="9,8,0,9"/>
             <ListBox x:Name="ProgramsList" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource ForegroundBrush}"
                      VerticalAlignment="Stretch" VerticalContentAlignment="Top" MouseDoubleClick="ProgramsList_MouseDoubleClick"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True"
-                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.VirtualizationMode="Recycling">
+              <ListBox.GroupStyle><GroupStyle>
+                <GroupStyle.HeaderTemplate><DataTemplate><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="8,9,0,5" Foreground="{DynamicResource ForegroundBrush}"/></DataTemplate></GroupStyle.HeaderTemplate>
+              </GroupStyle></ListBox.GroupStyle>
               <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
+                  <EventSetter Event="ContextMenuOpening" Handler="Program_ContextMenuOpening"/>
+                  <Setter Property="ContextMenu"><Setter.Value><ContextMenu/></Setter.Value></Setter>
                   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                   <Setter Property="Padding" Value="7,6"/>
                   <Setter Property="Margin" Value="1"/>
@@ -89,7 +94,7 @@
                 </Style>
               </ListBox.ItemContainerStyle>
               <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Image Source="{Binding Icon}" Width="32" Height="32" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <Image Source="{Binding Item.Icon}" Width="32" Height="32" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="13"/>
                 <TextBlock Text="{Binding Category}" TextTrimming="CharacterEllipsis" FontSize="10" Margin="0,2,0,0" Opacity="0.8"/></StackPanel>
               </Grid></DataTemplate></ListBox.ItemTemplate>

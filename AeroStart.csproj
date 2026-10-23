@@ -11,5 +11,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\AeroStart.ico" />
+    <Compile Remove="Tests\**\*.cs" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>AeroStart.FeatureChecks</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>
