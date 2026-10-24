@@ -26,6 +26,7 @@ public partial class MainWindow
         ApplyMenuAppearance();
         ApplyFilter();
         SystemToolsButton.Visibility = settings.ShowSystemTools ? Visibility.Visible : Visibility.Collapsed;
+        TaskManagerShortcutButton.Visibility = settings.ShowTaskManagerShortcut ? Visibility.Visible : Visibility.Collapsed;
         if (!settings.ShowSystemTools) CloseSystemTools();
     }
 

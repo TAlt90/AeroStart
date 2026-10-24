@@ -347,6 +347,7 @@ public partial class MainWindow : Window
         Launch(tool.Target);
         e.Handled = true;
     }
+    private void TaskManagerShortcut_Click(object sender, RoutedEventArgs e) => Launch(System.IO.Path.Combine(Environment.SystemDirectory, "taskmgr.exe"));
     private void Run_Click(object sender, RoutedEventArgs e) => LaunchCommand("explorer.exe", "shell:::{2559a1f3-21d7-11d4-bdaf-00c04f60b9f0}");
     private void Lock_Click(object sender, RoutedEventArgs e) { HideMenu(); LockWorkStation(); }
     private bool ConfirmPower(string action)

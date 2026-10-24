@@ -53,6 +53,18 @@
         </StackPanel>
       </Grid>
       </Button>
+      <Button x:Name="TaskManagerShortcutButton" Grid.Row="0" Width="34" Height="34" Margin="0,0,10,7"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource MenuButton}"
+              Padding="6" Visibility="Collapsed" ToolTip="Task-Manager öffnen" AutomationProperties.Name="Task-Manager öffnen"
+              Click="TaskManagerShortcut_Click">
+        <Viewbox Width="20" Height="20">
+          <Grid Width="20" Height="20">
+            <Rectangle Margin="1,2,1,4" RadiusX="2" RadiusY="2" Stroke="{DynamicResource ForegroundBrush}" StrokeThickness="1.5"/>
+            <Path Data="M 3,11 L 6,11 8,6 11,13 13,9 17,9 M 7,18 L 13,18 M 10,16 L 10,18"
+                  Stroke="{DynamicResource ForegroundBrush}" StrokeThickness="1.5"/>
+          </Grid>
+        </Viewbox>
+      </Button>
       <Grid Grid.Row="1">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="196"/></Grid.ColumnDefinitions>
         <Border Grid.Column="0" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6">

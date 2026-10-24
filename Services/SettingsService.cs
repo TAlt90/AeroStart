@@ -14,6 +14,7 @@ public sealed record AppSettings
     public StartMenuKind StartMenu { get; init; } = StartMenuKind.AeroStart;
     public KeyboardMonitor Monitor { get; init; } = KeyboardMonitor.Mouse;
     public bool ShowSystemTools { get; init; } = true;
+    public bool ShowTaskManagerShortcut { get; init; }
     public bool AnimateMenu { get; init; } = true;
     public bool AcrylicEnabled { get; init; }
     public bool ReplaceStartButtons { get; init; }

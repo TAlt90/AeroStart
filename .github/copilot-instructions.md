@@ -9,3 +9,7 @@
 
 ## Diagnoseanweisungen
 - Für die aktuelle AeroStart-Windows-Tasten-Diagnose ausschließlich Release verwenden; Debug funktioniert laut Benutzer zuverlässig. Diagnose ohne Debugger-Attach oder Prozesspause über temporären Tray-Eintrag mit Diagnosefenster, maximal 30 relevante Win-Key-Ereignisse im Speicher, keine anderen Tasten oder dauerhafte Protokollierung. Hook-Verhalten und Position VisualOffsetX - 2 unverändert lassen.
+
+## AeroStart-Einstellungen
+- Die AeroStart-Einstellung „Mit Windows starten“ als moderner Windows-11-ToggleSwitch darstellen: Beschriftung links, Schalter rechts, Beschreibung darunter; hell-/dunkeltauglich und tastaturbedienbar, bestehende Registry-Logik unverändert.
+- Verwende binäre Ein/Aus-Einstellungen im gemeinsamen Windows-11-Toggle-Stil wie Autostart; Mattglas bleibt deaktiviert/ausgegraut mit Hinweis. Keine RadioButtons oder anderen Bedienelemente bei dieser Vereinheitlichung verändern.

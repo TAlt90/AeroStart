@@ -44,6 +44,7 @@ public sealed class SystemToolItem(string name, string target, params string[] i
         SystemToolItem Tool(string title, string file) => new(title, Path.Combine(system, file), Path.Combine(system, file));
         return new[]
         {
+            Tool("Task-Manager", "taskmgr.exe"),
             Tool("Geräte-Manager", "devmgmt.msc"),
             Tool("Datenträgerverwaltung", "diskmgmt.msc"),
             Tool("Computerverwaltung", "compmgmt.msc"),

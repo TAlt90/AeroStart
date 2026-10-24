@@ -63,10 +63,9 @@ public partial class SettingsWindow : Window
         MouseMonitor.IsChecked = current.Monitor == KeyboardMonitor.Mouse;
         PrimaryMonitor.IsChecked = current.Monitor == KeyboardMonitor.Primary;
         ActiveMonitor.IsChecked = current.Monitor == KeyboardMonitor.ActiveWindow;
-        AnimationOn.IsChecked = current.AnimateMenu;
-        AnimationOff.IsChecked = !current.AnimateMenu;
-        ToolsOn.IsChecked = current.ShowSystemTools;
-        ToolsOff.IsChecked = !current.ShowSystemTools;
+        AnimationToggle.IsChecked = current.AnimateMenu;
+        SystemToolsToggle.IsChecked = current.ShowSystemTools;
+        TaskManagerShortcutToggle.IsChecked = current.ShowTaskManagerShortcut;
         StableKeyboard.IsChecked = current.KeyboardMode == KeyboardIntegrationMode.Stable;
         ExperimentalKeyboard.IsChecked = current.KeyboardMode == KeyboardIntegrationMode.Experimental;
         TaskbarButtonsOn.IsChecked = current.ReplaceStartButtons;
@@ -78,9 +77,7 @@ public partial class SettingsWindow : Window
     private void MenuOpacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_readingSettings || !IsLoaded) return;
-        try { _settings.Save(_settings.Current with { StartMenuOpacity = (int)(Math.Round(e.NewValue / 5) * 5) }); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
-        { StatusText.Text = "Speichern fehlgeschlagen: " + ex.Message; ReadSettings(); }
+        SaveSettingsFromControls();
     }
 
     private void Acrylic_Changed(object sender, RoutedEventArgs e)
@@ -133,23 +130,34 @@ public partial class SettingsWindow : Window
         FeaturesPage.Visibility = category == "Features" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    private void SettingsControl_Click(object sender, RoutedEventArgs e)
+    {
+        if (_readingSettings || !IsLoaded) return;
+        SaveSettingsFromControls();
+    }
+
+    private void SaveSettingsFromControls()
     {
         try
         {
-            _settings.Save(_settings.Current with
+            var updated = _settings.Current with
             {
                 StartMenu = WindowsMenu.IsChecked == true ? StartMenuKind.Windows : StartMenuKind.AeroStart,
                 Monitor = PrimaryMonitor.IsChecked == true ? KeyboardMonitor.Primary : ActiveMonitor.IsChecked == true ? KeyboardMonitor.ActiveWindow : KeyboardMonitor.Mouse,
-                AnimateMenu = AnimationOn.IsChecked == true,
-                ShowSystemTools = ToolsOn.IsChecked == true,
+                AnimateMenu = AnimationToggle.IsChecked == true,
+                ShowSystemTools = SystemToolsToggle.IsChecked == true,
+                ShowTaskManagerShortcut = TaskManagerShortcutToggle.IsChecked == true,
+                StartMenuOpacity = (int)(Math.Round(MenuOpacitySlider.Value / 5) * 5),
                 KeyboardMode = ExperimentalKeyboard.IsChecked == true ? KeyboardIntegrationMode.Experimental : KeyboardIntegrationMode.Stable,
                 ReplaceStartButtons = TaskbarButtonsOn.IsChecked == true
-            });
+            };
+            if (updated == _settings.Current) return;
+            _settings.Save(updated);
             StatusText.Text = "Gespeichert. " + ((App)Application.Current).KeyboardStatus;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException)
         {
+            ReadSettings();
             StatusText.Text = "Speichern fehlgeschlagen: " + ex.Message;
         }
     }

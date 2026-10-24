@@ -91,6 +91,7 @@ internal static class Program
             var settings = new SettingsService(path);
             settings.Load();
             Check(!settings.Current.AcrylicEnabled, "Legacy settings keep acrylic disabled");
+            Check(!settings.Current.ShowTaskManagerShortcut, "Legacy settings default task manager shortcut off");
             Check(settings.LoadWarning is null && settings.Current.StartMenuOpacity == 100 && settings.Current.PinnedPrograms.Length == 0 && !settings.Current.AnimateMenu, "Legacy settings defaults");
             var exe = Path.Combine(root, "Sample.exe");
             var url = Path.Combine(root, "Site.url");
@@ -194,6 +195,90 @@ internal static class Program
                 Check(((Brush)independent["PanelBrush"]).Opacity == 1, "Other windows isolated");
             }
             var app = new AeroStart.App { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
+            var immediatePath = Path.Combine(root, "immediate.json");
+            var immediate = new SettingsService(immediatePath);
+            immediate.Save(new AppSettings { PinnedPrograms = pins, AcrylicEnabled = true });
+            var originalData = File.ReadAllText(immediatePath);
+            var saves = 0;
+            immediate.Changed += (_, _) => saves++;
+            var immediateWindow = new AeroStart.SettingsWindow(immediate, new FailingAutostart());
+            immediateWindow.Show();
+            Check(saves == 0 && File.ReadAllText(immediatePath) == originalData, "Loading/showing settings never writes");
+            var liveMenu = new AeroStart.MainWindow();
+            immediate.Changed += (_, _) => liveMenu.ApplySettings(immediate.Current);
+            void ClickSetting(string name, bool value)
+            {
+                var control = (System.Windows.Controls.Primitives.ToggleButton)immediateWindow.FindName(name);
+                control.IsChecked = value;
+                control.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            }
+            ClickSetting("WindowsMenu", true);
+            Check(immediate.Current.StartMenu == StartMenuKind.Windows, "General saves immediately");
+            ClickSetting("AeroMenu", true);
+            ClickSetting("PrimaryMonitor", true);
+            Check(immediate.Current.Monitor == KeyboardMonitor.Primary, "Monitor saves immediately");
+            ClickSetting("ActiveMonitor", true);
+            ClickSetting("MouseMonitor", true);
+            Check(immediate.Current.Monitor == KeyboardMonitor.Mouse, "All monitor choices save");
+            ClickSetting("ExperimentalKeyboard", true);
+            Check(immediate.Current.KeyboardMode == KeyboardIntegrationMode.Experimental, "Keyboard selection saves immediately");
+            ClickSetting("StableKeyboard", true);
+            ClickSetting("TaskbarButtonsOn", true);
+            Check(immediate.Current.ReplaceStartButtons, "Taskbar setting saves without modifying placement code");
+            ClickSetting("TaskbarButtonsOff", true);
+            ClickSetting("AnimationToggle", false);
+            Check(!immediate.Current.AnimateMenu, "Animation toggle preserves existing value semantics");
+            ClickSetting("SystemToolsToggle", false);
+            ClickSetting("TaskManagerShortcutToggle", true);
+            Check(!immediate.Current.ShowSystemTools && immediate.Current.ShowTaskManagerShortcut, "Shortcut is independent of tools submenu");
+            var quick = (System.Windows.Controls.Button)liveMenu.FindName("TaskManagerShortcutButton");
+            Check(quick.Visibility == System.Windows.Visibility.Visible
+                && ((System.Windows.Controls.Button)liveMenu.FindName("SystemToolsButton")).Visibility == System.Windows.Visibility.Collapsed,
+                "Settings changes apply immediately to existing menu");
+            var profile = (System.Windows.Controls.Button)liveMenu.FindName("ProfileButton");
+            var header = (System.Windows.Controls.Grid)VisualTreeHelper.GetParent(profile);
+            header.Measure(new System.Windows.Size(632, 592));
+            header.Arrange(new System.Windows.Rect(0, 0, 632, 592));
+            var profileBounds = profile.TransformToAncestor(header).TransformBounds(new System.Windows.Rect(profile.RenderSize));
+            var quickBounds = quick.TransformToAncestor(header).TransformBounds(new System.Windows.Rect(quick.RenderSize));
+            Check(!profileBounds.IntersectsWith(quickBounds) && liveMenu.Width == 650 && liveMenu.Height == 610, "Shortcut never overlaps profile or changes fixed window size");
+            Check(SystemToolItem.CreateCatalog().Count(tool => tool.Name == "Task-Manager"
+                && tool.Target == Path.Combine(Environment.SystemDirectory, "taskmgr.exe")) == 1, "Task manager always exists once in system tools catalog");
+            ClickSetting("TaskManagerShortcutToggle", false);
+            Check(quick.Visibility == System.Windows.Visibility.Collapsed, "Shortcut off hides icon");
+            ((System.Windows.Controls.Slider)immediateWindow.FindName("MenuOpacitySlider")).Value = 45;
+            var reread = new SettingsService(immediatePath);
+            reread.Load();
+            Check(reread.Current.StartMenuOpacity == 45 && !reread.Current.AnimateMenu
+                && !reread.Current.ShowSystemTools && !reread.Current.ShowTaskManagerShortcut
+                && reread.Current.PinnedPrograms.SequenceEqual(pins) && reread.Current.AcrylicEnabled, "All settings persist and unrelated saved values survive");
+            var savedCount = saves;
+            ClickSetting("StableKeyboard", true);
+            immediateWindow.Hide();
+            immediateWindow.Show();
+            Check(saves == savedCount, "Unchanged clicks/reopening do not write");
+            var appearance = (System.Windows.Controls.StackPanel)immediateWindow.FindName("AppearancePage");
+            Check(((System.Windows.Controls.TextBlock)((System.Windows.Controls.StackPanel)((System.Windows.Controls.Border)appearance.Children[1]).Child).Children[0]).Text == "Design folgt Windows", "Windows theme card is first");
+            immediateWindow.Close();
+            liveMenu.Close();
+            var blockedParent = Path.Combine(root, "blocked-ui");
+            File.WriteAllText(blockedParent, "not a directory");
+            var blockedSettings = new SettingsService(Path.Combine(blockedParent, "settings.json"));
+            var blockedWindow = new AeroStart.SettingsWindow(blockedSettings, new FailingAutostart());
+            blockedWindow.Show();
+            var blockedToggle = (System.Windows.Controls.CheckBox)blockedWindow.FindName("TaskManagerShortcutToggle");
+            blockedToggle.IsChecked = true;
+            blockedToggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(blockedToggle.IsChecked == false && !blockedSettings.Current.ShowTaskManagerShortcut
+                && ((System.Windows.Controls.TextBlock)blockedWindow.FindName("StatusText")).Text.Contains("fehlgeschlagen"), "Failed immediate save restores UI and reports failure");
+            var blockedRadio = (System.Windows.Controls.RadioButton)blockedWindow.FindName("WindowsMenu");
+            blockedRadio.IsChecked = true;
+            blockedRadio.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(blockedRadio.IsChecked == false, "Failed radio save restores selection without recursive write");
+            var blockedSlider = (System.Windows.Controls.Slider)blockedWindow.FindName("MenuOpacitySlider");
+            blockedSlider.Value = 30;
+            Check(blockedSlider.Value == 100 && blockedSettings.Current.StartMenuOpacity == 100, "Failed slider save restores persisted opacity");
+            blockedWindow.Close();
             var autostartKey = @"Software\AeroStart.FeatureChecks\" + Guid.NewGuid().ToString("N");
             try
             {
