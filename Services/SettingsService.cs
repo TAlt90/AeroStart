@@ -15,6 +15,7 @@ public sealed record AppSettings
     public KeyboardMonitor Monitor { get; init; } = KeyboardMonitor.Mouse;
     public bool ShowSystemTools { get; init; } = true;
     public bool AnimateMenu { get; init; } = true;
+    public bool AcrylicEnabled { get; init; }
     public bool ReplaceStartButtons { get; init; }
     public int StartMenuOpacity { get; init; } = 100;
     public string[] PinnedPrograms { get; init; } = [];

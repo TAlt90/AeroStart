@@ -9,15 +9,20 @@ namespace AeroStart;
 public partial class SettingsWindow : Window
 {
     private readonly SettingsService _settings;
+    private readonly AutostartService _autostart;
     private HwndSource? _source;
     private bool _readingSettings;
 
-    public SettingsWindow(SettingsService settings)
+    public SettingsWindow(SettingsService settings) : this(settings, new AutostartService()) { }
+
+    internal SettingsWindow(SettingsService settings, AutostartService autostart)
     {
         _settings = settings;
+        _autostart = autostart;
         InitializeComponent();
         AppearanceService.Apply(this, null);
         ReadSettings();
+        IsVisibleChanged += (_, _) => { if (IsVisible) ReadAutostart(); };
         StatusText.Text = settings.LoadWarning ?? ((App)Application.Current).KeyboardStatus;
         SourceInitialized += (_, _) =>
         {
@@ -51,6 +56,8 @@ public partial class SettingsWindow : Window
         {
         var current = _settings.Current;
         MenuOpacitySlider.Value = current.StartMenuOpacity;
+        MenuOpacitySlider.IsEnabled = true;
+        AcrylicToggle.IsChecked = false;
         AeroMenu.IsChecked = current.StartMenu == StartMenuKind.AeroStart;
         WindowsMenu.IsChecked = current.StartMenu == StartMenuKind.Windows;
         MouseMonitor.IsChecked = current.Monitor == KeyboardMonitor.Mouse;
@@ -74,6 +81,47 @@ public partial class SettingsWindow : Window
         try { _settings.Save(_settings.Current with { StartMenuOpacity = (int)(Math.Round(e.NewValue / 5) * 5) }); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         { StatusText.Text = "Speichern fehlgeschlagen: " + ex.Message; ReadSettings(); }
+    }
+
+    private void Acrylic_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!MainWindow.AcrylicAvailable || _readingSettings || !IsLoaded) return;
+        try { _settings.Save(_settings.Current with { AcrylicEnabled = AcrylicToggle.IsChecked == true }); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        { StatusText.Text = "Speichern fehlgeschlagen: " + ex.Message; ReadSettings(); }
+    }
+
+    private bool ReadAutostart()
+    {
+        try
+        {
+            AutostartToggle.IsChecked = _autostart.IsEnabled();
+            AutostartToggle.IsEnabled = true;
+            AutostartStatusText.Text = string.Empty;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            AutostartToggle.IsChecked = null;
+            AutostartToggle.IsEnabled = false;
+            AutostartStatusText.Text = "Autostartzustand konnte nicht gelesen werden: " + ex.Message;
+            return false;
+        }
+    }
+
+    private void Autostart_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _autostart.SetEnabled(AutostartToggle.IsChecked == true);
+            ReadAutostart();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            var error = "Autostart konnte nicht geändert werden: " + ex.Message;
+            ReadAutostart();
+            AutostartStatusText.Text = error + " " + AutostartStatusText.Text;
+        }
     }
 
     private void Category_Click(object sender, RoutedEventArgs e)

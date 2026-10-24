@@ -63,11 +63,14 @@ public partial class MainWindow : Window
         {
             _source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             _source?.AddHook(WndProc);
+            ConfigureAcrylic();
             ApplyMenuAppearance();
         };
         Closed += (_, _) =>
         {
             _closed = true;
+            _acrylic?.Dispose();
+            _acrylic = null;
             _focusRequest++;
             _animationRequest++;
             StopMenuAnimation();
@@ -81,6 +84,7 @@ public partial class MainWindow : Window
     {
         // WM_SETTINGCHANGE, WM_THEMECHANGED, WM_DWMCOMPOSITIONCHANGED, WM_DWMCOLORIZATIONCOLORCHANGED.
         if (msg is 0x001A or 0x031A or 0x031E or 0x0320) QueueAppearanceUpdate();
+        if (msg is 0x0047 or 0x02E0) _acrylic?.Sync(_menuSettings.StartMenuOpacity);
         if (msg == 0x001C && wParam == IntPtr.Zero)
         {
             if (_allowHide && _programContextMenu?.IsOpen != true) HideMenu();
@@ -94,7 +98,7 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             _appearanceUpdatePending = false;
-            if (!_closed) ApplyMenuAppearance();
+            if (!_closed) { ConfigureAcrylic(); ApplyMenuAppearance(); }
         }));
     }
     private async void Window_Loaded(object sender, RoutedEventArgs e)

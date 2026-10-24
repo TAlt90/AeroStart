@@ -23,6 +23,9 @@ internal sealed class WindowPair
     private DispatcherTimer? _returnTimer, _testTimer;
     private Native.Rect _original;
     private string _testResult = "Selbsttest ausstehend";
+    private readonly System.Diagnostics.Stopwatch _fadeClock = new();
+    private bool _fadeRunning, _slowFade;
+    private double _fadeAlpha = 1;
 
     internal WindowPair(WinWindow behind, PairBackdrop backdrop)
     {
@@ -65,6 +68,9 @@ internal sealed class WindowPair
             Sync();
         });
         AddButton(panel, "Beide ausblenden / nach 1 Sekunde zurück", HideAndReturn);
+        AddButton(panel, "Fade prüfen: 120 ms Aus / 180 ms Ein", () => StartFade(false));
+        AddButton(panel, "Fade prüfen: langsame Alpha-Zwischenstände", () => StartFade(true));
+        AddButton(panel, "Bestätigten Acrylic-Zustand wiederherstellen", ResetFade);
         AddButton(panel, "Prüfstatus protokollieren", () => Verify(true));
         AddButton(panel, "Beide schließen", _front.Close);
         panel.Children.Add(_status);
@@ -106,6 +112,80 @@ internal sealed class WindowPair
         _testTimer.Tick += (_, _) => SelfTestStep();
         _testTimer.Start();
         Console.WriteLine("PAIR START: official DesktopAcrylicBackdrop, owned transparent WPF, PerMonitorV2; no screen capture.");
+    }
+
+    private void StartFade(bool slow)
+    {
+        if (_fadeRunning) return;
+        _testTimer?.Stop();
+        _slowFade = slow;
+        Native.SetWindowLongPtr(_backHandle, -20, Native.GetWindowLongPtr(_backHandle, -20) | 0x00080000);
+        try
+        {
+            ApplyFade(1);
+            _fadeRunning = true;
+            _fadeClock.Restart();
+            CompositionTarget.Rendering += FadeFrame;
+            Console.WriteLine($"FADE START slow={slow}; WinUI WS_EX_LAYERED candidate; identical alpha on both layers; visual blur NOT established.");
+        }
+        catch (Win32Exception ex)
+        {
+            ResetFade();
+            _testResult = "Nativer Fade nicht verfügbar: " + ex.Message;
+            Verify(true);
+        }
+    }
+
+    private void FadeFrame(object? sender, EventArgs e)
+    {
+        double ms = _fadeClock.Elapsed.TotalMilliseconds;
+        if (_slowFade)
+        {
+            double[] levels = [1, 0.75, 0.5, 0.25, 0, 0.25, 0.5, 0.75, 1];
+            int index = Math.Min((int)(ms / 900), levels.Length - 1);
+            ApplyFade(levels[index]);
+            if (ms < levels.Length * 900) return;
+        }
+        else
+        {
+            double alpha;
+            if (ms < 120) alpha = 1 - Math.Pow(ms / 120, 3);
+            else if (ms < 620) alpha = 0;
+            else alpha = 1 - Math.Pow(1 - Math.Clamp((ms - 620) / 180, 0, 1), 3);
+            ApplyFade(alpha);
+            if (ms < 800) return;
+        }
+        CompositionTarget.Rendering -= FadeFrame;
+        _fadeRunning = false;
+        _fadeClock.Stop();
+        ApplyFade(1);
+        _testResult = "Fade beendet; Layered-Kandidat aktiv. Blur/Artefakte visuell prüfen, dann Referenz wiederherstellen.";
+        Verify(true);
+    }
+
+    private void ApplyFade(double alpha)
+    {
+        byte nativeAlpha = (byte)Math.Round(Math.Clamp(alpha, 0, 1) * 255);
+        Native.Check(Native.SetLayeredWindowAttributes(_backHandle, 0, nativeAlpha, 2));
+        ((UIElement)_front.Content).Opacity = nativeAlpha / 255.0;
+        if (_fadeAlpha != nativeAlpha / 255.0 && _slowFade)
+            Console.WriteLine($"FADE alpha={nativeAlpha}/255; front and back requested equally; visual verification required.");
+        _fadeAlpha = nativeAlpha / 255.0;
+    }
+
+    private void ResetFade()
+    {
+        CompositionTarget.Rendering -= FadeFrame;
+        _fadeRunning = false;
+        _fadeClock.Stop();
+        ((UIElement)_front.Content).Opacity = 1;
+        _fadeAlpha = 1;
+        Native.SetWindowLongPtr(_backHandle, -20, Native.GetWindowLongPtr(_backHandle, -20) & ~0x00080000);
+        Native.Check(Native.SetWindowPos(_backHandle, 0, 0, 0, 0, 0, 0x0037));
+        Native.RedrawWindow(_backHandle, 0, 0, 0x0185);
+        _testResult = "Nicht-layered Acrylic-Referenz wiederhergestellt; visuell vergleichen.";
+        Sync();
+        Verify(true);
     }
 
     private void Post(Action action) => _front.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (!_closing) action(); }));
@@ -214,6 +294,7 @@ internal sealed class WindowPair
     {
         if (_closing) return;
         _closing = true;
+        CompositionTarget.Rendering -= FadeFrame;
         _monitor.Stop(); _returnTimer?.Stop(); _testTimer?.Stop();
         Native.RemoveWindowSubclass(_backHandle, _backgroundProc, 1);
         _behind.Close();
@@ -238,6 +319,8 @@ internal static class Native
     [DllImport("user32.dll")] internal static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool IsWindowVisible(nint hwnd);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool ShowWindow(nint hwnd, int command);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool SetLayeredWindowAttributes(nint hwnd, uint colorKey, byte alpha, uint flags);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool RedrawWindow(nint hwnd, nint rect, nint region, uint flags);
     [DllImport("comctl32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool SetWindowSubclass(nint hwnd, SubclassProc proc, nuint id, nuint data);
     [DllImport("comctl32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool RemoveWindowSubclass(nint hwnd, SubclassProc proc, nuint id);
     [DllImport("comctl32.dll")] internal static extern nint DefSubclassProc(nint hwnd, uint message, nuint wParam, nint lParam);

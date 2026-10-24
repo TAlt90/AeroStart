@@ -11,6 +11,7 @@ public sealed class TrayService : IDisposable
     private const int Callback = 0x8001;
     private readonly HwndSource _source;
     private readonly Action _open, _settings, _toggle, _exit;
+    private readonly Action? _keyboardDiagnostic;
     private readonly Func<bool> _enabled;
     private readonly uint _taskbarCreated;
     private IntPtr _icon;
@@ -18,9 +19,10 @@ public sealed class TrayService : IDisposable
     private bool _disposed;
     public string? Warning { get; private set; }
 
-    public TrayService(Action open, Action settings, Action toggle, Action exit, Func<bool> enabled)
+    public TrayService(Action open, Action settings, Action toggle, Action exit, Func<bool> enabled, Action? keyboardDiagnostic = null)
     {
         (_open, _settings, _toggle, _exit, _enabled) = (open, settings, toggle, exit, enabled);
+        _keyboardDiagnostic = keyboardDiagnostic;
         _source = new HwndSource(new HwndSourceParameters("AeroStart.Tray") { Width = 0, Height = 0, WindowStyle = 0 });
         _source.AddHook(WndProc);
         _taskbarCreated = RegisterWindowMessage("TaskbarCreated");
@@ -80,13 +82,14 @@ public sealed class TrayService : IDisposable
             AppendMenu(menu, 0, 1, "Startmenü öffnen");
             AppendMenu(menu, 0, 2, "Einstellungen");
             AppendMenu(menu, 0, 3, _enabled() ? "AeroStart deaktivieren" : "AeroStart aktivieren");
+            if (_keyboardDiagnostic is not null) AppendMenu(menu, 0, 5, "Windows-Tasten-Diagnose (temporär)");
             AppendMenu(menu, 0x800, 0, null);
             AppendMenu(menu, 0, 4, "Beenden");
             GetCursorPos(out var point);
             SetForegroundWindow(_source.Handle);
             var command = TrackPopupMenu(menu, 0x0100 | 0x0002, point.X, point.Y, 0, _source.Handle, IntPtr.Zero);
             PostMessage(_source.Handle, 0, IntPtr.Zero, IntPtr.Zero);
-            switch (command) { case 1: _open(); break; case 2: _settings(); break; case 3: _toggle(); break; case 4: _exit(); break; }
+            switch (command) { case 1: _open(); break; case 2: _settings(); break; case 3: _toggle(); break; case 4: _exit(); break; case 5: _keyboardDiagnostic?.Invoke(); break; }
         }
         finally { DestroyMenu(menu); }
     }

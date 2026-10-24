@@ -15,8 +15,18 @@ public partial class MainWindow
 
     private void ApplyMenuAppearance()
     {
-        AppearanceService.Apply(this, _source, _menuSettings.StartMenuOpacity);
-        var contrastProtection = !SystemParameters.HighContrast && _menuSettings.StartMenuOpacity < 100;
+        var effectiveOpacity = AcrylicAvailable && _menuSettings.AcrylicEnabled ? 100 : _menuSettings.StartMenuOpacity;
+        AppearanceService.Apply(this, _source, effectiveOpacity);
+        if (_acrylic is not null)
+        {
+            foreach (var key in new[] { "WindowBackgroundBrush", "PanelBrush", "SearchBrush", "SidebarBrush" })
+            {
+                var brush = ((Brush)Resources[key]).Clone();
+                brush.Opacity *= key == "WindowBackgroundBrush" ? 0.15 : 0.55;
+                Resources[key] = brush;
+            }
+        }
+        var contrastProtection = !SystemParameters.HighContrast && effectiveOpacity < 100;
         var textColor = ((SolidColorBrush)Resources["ForegroundBrush"]).Color;
         var effect = contrastProtection ? new DropShadowEffect
         {

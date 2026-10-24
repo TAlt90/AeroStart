@@ -6,6 +6,8 @@ public partial class App : Application
     private SingleInstanceService? _instance;
     private TrayService? _tray;
     private SettingsWindow? _settingsWindow;
+    private Window? _keyboardDiagnosticWindow;
+    private System.Windows.Controls.TextBox? _keyboardDiagnosticText;
     private MainWindow? _menu;
     private ShellIntegrationService? _shell;
     private KeyboardIntegrationService? _keyboard;
@@ -36,7 +38,11 @@ public partial class App : Application
             Settings.Load();
             _shell = new ShellIntegrationService(Settings, GetMenu);
             _tray = new TrayService(() => InvokeMenu(false), ShowSettings, ToggleEnabled, Shutdown,
-                () => Settings.Current.Enabled);
+                () => Settings.Current.Enabled
+#if RELEASE
+                , ShowKeyboardDiagnostic
+#endif
+                );
             _keyboard = new KeyboardIntegrationService(() => InvokeMenu(true));
             _keyboard.StatusChanged += KeyboardChanged;
             ConfigureKeyboard();
@@ -93,6 +99,48 @@ public partial class App : Application
         _settingsWindow.Activate();
     }
 
+    private void ShowKeyboardDiagnostic()
+    {
+        if (_keyboardDiagnosticWindow is null)
+        {
+            var panel = new System.Windows.Controls.DockPanel { Margin = new Thickness(12) };
+            var refresh = new System.Windows.Controls.Button
+            {
+                Content = "Snapshot aktualisieren", HorizontalAlignment = HorizontalAlignment.Left,
+                Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(0, 0, 0, 8)
+            };
+            System.Windows.Controls.DockPanel.SetDock(refresh, System.Windows.Controls.Dock.Top);
+            panel.Children.Add(refresh);
+            _keyboardDiagnosticText = new System.Windows.Controls.TextBox
+            {
+                IsReadOnly = true, AcceptsReturn = true, FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto
+            };
+            panel.Children.Add(_keyboardDiagnosticText);
+            refresh.Click += (_, _) => RefreshKeyboardDiagnostic();
+            _keyboardDiagnosticWindow = new Window
+            {
+                Title = "Windows-Tasten-Diagnose – Release (temporär)", Width = 920, Height = 650, Content = panel
+            };
+            _keyboardDiagnosticWindow.Closed += (_, _) =>
+            {
+                _keyboardDiagnosticWindow = null;
+                _keyboardDiagnosticText = null;
+            };
+        }
+        RefreshKeyboardDiagnostic();
+        _keyboardDiagnosticWindow.Show();
+        if (_keyboardDiagnosticWindow.WindowState == WindowState.Minimized) _keyboardDiagnosticWindow.WindowState = WindowState.Normal;
+        _keyboardDiagnosticWindow.Activate();
+    }
+
+    private void RefreshKeyboardDiagnostic()
+    {
+        if (_keyboardDiagnosticText is not null)
+            _keyboardDiagnosticText.Text = _keyboard?.GetWindowsKeyDiagnosticText() ?? "Tastaturdienst nicht verfügbar.";
+    }
+
     private void ToggleEnabled()
     {
         try { Settings.Save(Settings.Current with { Enabled = !Settings.Current.Enabled }); }
@@ -142,6 +190,7 @@ public partial class App : Application
         _tray?.Dispose();
         _instance?.Dispose();
         ShellIconService.Instance.Dispose();
+        AeroStart.BackdropHost.AcrylicHost.Shutdown();
         base.OnExit(e);
     }
 }

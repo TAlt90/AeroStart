@@ -2,6 +2,12 @@
 
 Erster funktionsfähiger WPF-Prototyp für Windows 11, geschrieben in C# / .NET 10.
 
+## Experimenteller Checkpoint
+- Experimenteller Entwicklungsstand, keine stabile Freigabe. Mattglas ist zur Laufzeit gesperrt, auch bei früher gespeichertem EIN. Der sichtbare Schalter ist deaktiviert mit „Experimentell – derzeit nicht verfügbar“. Der Transparenzmodus mit 30–100 % bleibt verfügbar; Prototypen und Mattglas-Code bleiben erhalten.
+- **Bekanntes Problem:** Die einzelne Windows-Taste kann im experimentellen Tastaturmodus insbesondere im Release-Build nach Explorer-Neustart das native Startmenü, AeroStart oder beide öffnen. Ursache noch nicht abschließend belegt; keine Hook-Korrektur in diesem Checkpoint. Stabiler Alternativaufruf: Strg+Alt+Leertaste oder Tray. Die temporäre Release-Diagnose im Tray zeigt bis zu 30 Einzel-Win-Einträge ausschließlich im Speicher, ohne Datei oder Debuggerpause.
+- Bestätigte Taskleisten-Ausrichtung: `entry.Target.VisualOffsetX - 2`; in diesem Arbeitsschritt keine Positions- oder Animationsänderung.
+- **Allgemein → Mit Windows starten:** Standard AUS (kein Eintrag). Einschalten schreibt ausschließlich `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, Wert `AeroStart` vom Typ `REG_SZ`, Inhalt `"vollständiger EXE-Pfad" --background`. Wiederholtes Einschalten aktualisiert denselben Wert; Ausschalten entfernt nur diesen Wert. Keine Administratorrechte, Aufgabe oder Zusatzdienste. Bei jedem Öffnen der Einstellungen wird die Registry neu gelesen; Fehler werden angezeigt und nicht als erfolgreiche Änderung übernommen. Nach Verschieben der EXE den Schalter erneut einschalten, um den Pfad zu aktualisieren.
+
 ## v0.2.0: Deckkraft und Programm-Kontextmenü
 - **Darstellung → Startmenü-Deckkraft:** 30–100 Prozent in 5-Prozent-Schritten, Standard 100. Der Regler speichert sofort in der bestehenden `settings.json`; alte Dateien verwenden weiterhin 100 Prozent. Nur Menü-Hintergrundbrushes einschließlich Popup-/Hoverflächen ändern sich, nicht Texte, Icons, Profilbild, Fensterdeckkraft oder Taskleistenbuttons. Eine Textkontur verbessert den Kontrast bei niedriger Deckkraft; Hochkontrast erzwingt unveränderte deckende Systemfarben.
 - Rechtsklick auf vorhandene Programme: **An Start anheften / Von Start lösen**, **Als Administrator ausführen** für vorhandene EXE-Ziele (auch aus LNK mit Argumenten und Arbeitsverzeichnis), **Dateispeicherort öffnen** mit Explorer-Auswahl der ursprünglichen Verknüpfung/Datei. URL-Verknüpfungen erhalten keine Administratoraktion; paketierte/fehlende Dateipfade keine ungültigen Dateiaufrufe. UAC-Abbruch wird ohne Fehlermeldung behandelt. Normales Starten bleibt unverändert.
@@ -33,7 +39,7 @@ Live-Prüfung ohne Programmstart: `dotnet run --project Tests\AeroStart.FeatureC
 ## Einstellungen, Tray und Startmodi
 Der manuelle Start ohne Argumente öffnet die Einstellungen mit den Kategorien Allgemein, Integration, Darstellung und Funktionen. Hell-/Dunkelmodus, Hochkontrast und Akzentfarbe folgen Windows. „Speichern“ übernimmt die Auswahl sofort und schreibt sie atomar nach `%LocalAppData%\AeroStart\settings.json`. Eine fehlende Datei verwendet Standardwerte; beschädigte oder nicht lesbare Dateien werden mit Hinweis durch Standardwerte ersetzt, ohne sie beim Laden zu überschreiben.
 
-Wirksam sind die Startmenü-Auswahl AeroStart/Windows-Standard, die Monitorauswahl Mauszeiger/Hauptmonitor/aktives Fenster, Systemwerkzeuge anzeigen, Animation aktivieren, Tastaturmodus Stabil/Experimentell und die optionalen Startbutton-Overlays. Die Monitorauswahl gilt nur für Tastaturaufrufe von AeroStart; Windows positioniert sein Standardmenü selbst. „Mit Windows starten“ bleibt **In Vorbereitung**. Keine Autostarteinträge oder Explorer-Änderungen.
+Wirksam sind die Startmenü-Auswahl AeroStart/Windows-Standard, die Monitorauswahl Mauszeiger/Hauptmonitor/aktives Fenster, Systemwerkzeuge anzeigen, Animation aktivieren, Tastaturmodus Stabil/Experimentell, „Mit Windows starten“ und die optionalen Startbutton-Overlays. Die Monitorauswahl gilt nur für Tastaturaufrufe von AeroStart; Windows positioniert sein Standardmenü selbst. Autostart wird sofort über den eigenen HKCU-Run-Eintrag geändert; keine Explorer-Änderungen.
 
 - Ohne Argumente: Einstellungen öffnen.
 - `--background`: unsichtbar im Tray starten; kein Menü-/Einstellungsfenster erzeugen.

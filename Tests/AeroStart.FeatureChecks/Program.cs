@@ -11,6 +11,53 @@ internal static class Program
         if (!condition) throw new InvalidOperationException(description);
     }
 
+    private sealed class FailingAutostart : AutostartService
+    {
+        public bool FailRead { get; set; }
+        public override bool IsEnabled() => FailRead ? throw new UnauthorizedAccessException("Test: Zugriff verweigert") : false;
+        public override void SetEnabled(bool enabled) => throw new UnauthorizedAccessException("Test: Zugriff verweigert");
+    }
+
+    private static void CheckAutostart(string keyPath, string executable)
+    {
+        using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(keyPath);
+        var existed = key.GetValueNames().Contains("AeroStart", StringComparer.OrdinalIgnoreCase);
+        var oldValue = key.GetValue("AeroStart", null, Microsoft.Win32.RegistryValueOptions.DoNotExpandEnvironmentNames);
+        var oldKind = existed ? key.GetValueKind("AeroStart") : Microsoft.Win32.RegistryValueKind.String;
+        var others = key.GetValueNames().Where(name => !name.Equals("AeroStart", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(name => name, name => System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Kind = key.GetValueKind(name), Value = key.GetValue(name, null, Microsoft.Win32.RegistryValueOptions.DoNotExpandEnvironmentNames)
+            }));
+        try
+        {
+            var service = new AutostartService(keyPath, executable);
+            service.SetEnabled(false);
+            Check(!service.IsEnabled(), "Autostart off when own value absent");
+            service.SetEnabled(true);
+            service.SetEnabled(true);
+            Check(service.IsEnabled() && key.GetValueNames().Count(name => name.Equals("AeroStart", StringComparison.OrdinalIgnoreCase)) == 1,
+                "Repeated enable creates exactly one autostart value");
+            Check((string?)key.GetValue("AeroStart") == $"\"{Path.GetFullPath(executable)}\" --background"
+                && key.GetValueKind("AeroStart") == Microsoft.Win32.RegistryValueKind.String, "Autostart executable quoted in REG_SZ");
+            key.SetValue("AeroStart", "outdated command");
+            service.SetEnabled(true);
+            Check((string?)key.GetValue("AeroStart") == service.Command, "Enable updates only own stale value");
+            service.SetEnabled(false);
+            service.SetEnabled(false);
+            Check(!service.IsEnabled(), "Repeated disable removes only own value");
+            Check(others.All(pair => pair.Value == System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Kind = key.GetValueKind(pair.Key), Value = key.GetValue(pair.Key, null, Microsoft.Win32.RegistryValueOptions.DoNotExpandEnvironmentNames)
+            })), "Other Run values unchanged");
+        }
+        finally
+        {
+            if (existed) key.SetValue("AeroStart", oldValue!, oldKind);
+            else key.DeleteValue("AeroStart", false);
+        }
+    }
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -43,6 +90,7 @@ internal static class Program
             File.WriteAllText(path, "{\"AnimateMenu\":false,\"StartMenu\":\"AeroStart\"}");
             var settings = new SettingsService(path);
             settings.Load();
+            Check(!settings.Current.AcrylicEnabled, "Legacy settings keep acrylic disabled");
             Check(settings.LoadWarning is null && settings.Current.StartMenuOpacity == 100 && settings.Current.PinnedPrograms.Length == 0 && !settings.Current.AnimateMenu, "Legacy settings defaults");
             var exe = Path.Combine(root, "Sample.exe");
             var url = Path.Combine(root, "Site.url");
@@ -56,6 +104,12 @@ internal static class Program
             var loaded = new SettingsService(path);
             loaded.Load();
             Check(changed == 1 && loaded.Current.StartMenuOpacity == 30 && loaded.Current.PinnedPrograms.SequenceEqual(pins), "Persistence/live change event");
+            settings.Save(settings.Current with { AcrylicEnabled = true });
+            loaded.Load();
+            Check(loaded.Current.AcrylicEnabled && loaded.Current.StartMenuOpacity == 30, "Acrylic persistence preserves opacity");
+            settings.Save(settings.Current with { AcrylicEnabled = false });
+            loaded.Load();
+            Check(!loaded.Current.AcrylicEnabled && loaded.Current.PinnedPrograms.SequenceEqual(pins), "Acrylic off persists without losing pins");
             foreach (var invalid in new[] { 29, 31, 101 })
             {
                 try { settings.Save(settings.Current with { StartMenuOpacity = invalid }); throw new InvalidOperationException("Invalid opacity accepted"); }
@@ -140,6 +194,106 @@ internal static class Program
                 Check(((Brush)independent["PanelBrush"]).Opacity == 1, "Other windows isolated");
             }
             var app = new AeroStart.App { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
+            var autostartKey = @"Software\AeroStart.FeatureChecks\" + Guid.NewGuid().ToString("N");
+            try
+            {
+                using (var sandbox = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(autostartKey)) sandbox.SetValue("OtherApp", "untouched");
+                var autostartExe = Path.Combine(root, "Folder with spaces", "AeroStart.exe");
+                CheckAutostart(autostartKey, autostartExe);
+                var autostart = new AutostartService(autostartKey, autostartExe);
+                var autostartWindow = new AeroStart.SettingsWindow(new SettingsService(Path.Combine(root, "autostart.json")), autostart);
+                autostartWindow.Show();
+                var toggle = (System.Windows.Controls.CheckBox)autostartWindow.FindName("AutostartToggle");
+                Check(toggle.IsChecked == false, "Autostart UI defaults off");
+                autostart.SetEnabled(true);
+                autostartWindow.Hide();
+                autostartWindow.Show();
+                Check(toggle.IsChecked == true, "Reopening settings reads actual registry");
+                toggle.IsChecked = false;
+                toggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Check(!autostart.IsEnabled() && toggle.IsChecked == false, "Autostart UI disables registry value");
+                toggle.IsChecked = true;
+                toggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Check(autostart.IsEnabled() && toggle.IsChecked == true, "Autostart UI enables registry value");
+                autostartWindow.Close();
+                var failing = new FailingAutostart();
+                var failedWindow = new AeroStart.SettingsWindow(new SettingsService(Path.Combine(root, "autostart-fail.json")), failing);
+                failedWindow.Show();
+                var failedToggle = (System.Windows.Controls.CheckBox)failedWindow.FindName("AutostartToggle");
+                failedToggle.IsChecked = true;
+                failedToggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Check(failedToggle.IsChecked == false && ((System.Windows.Controls.TextBlock)failedWindow.FindName("AutostartStatusText")).Text.Contains("nicht geändert"), "Autostart failure restores real off state and explains error");
+                failing.FailRead = true;
+                failedWindow.Hide();
+                failedWindow.Show();
+                Check(failedToggle.IsChecked is null && !failedToggle.IsEnabled, "Unreadable autostart is unknown, not falsely enabled");
+                failedWindow.Close();
+            }
+            finally { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(autostartKey, false); }
+            if (args.Contains("--autostart-live"))
+            {
+                var productExe = args[Array.IndexOf(args, "--autostart-live") + 1];
+                Check(File.Exists(productExe), "Live autostart check uses existing product EXE");
+                CheckAutostart(AutostartService.RunKeyPath, productExe);
+                Console.WriteLine("PASS: actual HKCU Run enable/update/disable, one AeroStart value, other values unchanged; original own value restored.");
+            }
+#if RELEASE
+            using (var keyboard = new KeyboardIntegrationService(() => { }))
+            {
+                var diagnosticFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var observe = typeof(KeyboardIntegrationService).GetMethod("ObserveWinDiagnostic", diagnosticFlags)!;
+                for (var i = 0; i < 35; i++)
+                {
+                    observe.Invoke(keyboard, [0x5B, true, false, KeyboardGesture.None]);
+                    observe.Invoke(keyboard, [0x5B, false, false, KeyboardGesture.WindowsReleased]);
+                }
+                var diagnostic = KeyboardIntegrationService.WindowsKeyDebugLog;
+                Check(diagnostic.Length == 30 && diagnostic.All(entry => entry.KeyUp >= entry.KeyDown
+                    && entry.UpDecision == KeyboardGesture.WindowsReleased && entry.DownToUpMs >= 0), "Win diagnostic retains only last 30 completed gestures and timing");
+                var last = diagnostic[^1];
+                foreach (var key in new[] { 0x45, 0x52, 0x44 })
+                {
+                    observe.Invoke(keyboard, [0x5B, true, false, KeyboardGesture.None]);
+                    observe.Invoke(keyboard, [key, true, false, KeyboardGesture.None]);
+                    observe.Invoke(keyboard, [key, false, false, KeyboardGesture.None]);
+                    observe.Invoke(keyboard, [0x5B, false, false, KeyboardGesture.None]);
+                }
+                Check(ReferenceEquals(KeyboardIntegrationService.WindowsKeyDebugLog[^1], last), "Win+E/R/D are not logged");
+                typeof(KeyboardIntegrationService).GetMethod("RecordSendInput", diagnosticFlags)!.Invoke(keyboard, [3u, false]);
+                observe.Invoke(keyboard, [0x5B, true, false, KeyboardGesture.None]);
+                observe.Invoke(keyboard, [0x5B, false, false, KeyboardGesture.WindowsReleased]);
+                typeof(KeyboardIntegrationService).GetMethod("RecordSendInput", diagnosticFlags)!.Invoke(keyboard, [3u, false]);
+                typeof(KeyboardIntegrationService).GetMethod("RecordNativeWinTime", diagnosticFlags)!.Invoke(keyboard,
+                    [0x5B, false, unchecked((uint)Environment.TickCount - 25)]);
+                var completed = KeyboardIntegrationService.WindowsKeyDebugLog[^1];
+                typeof(KeyboardIntegrationService).GetMethod("RecordMenuQueued", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, [completed]);
+                typeof(KeyboardIntegrationService).GetMethod("RecordMenuDispatch", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, [completed, true]);
+                Check(completed.SendInputResult == 3 && completed.MenuCallbackExecuted && completed.MenuDispatchTime is not null, "Win diagnostic records SendInput and actual dispatch branch");
+                Check(completed.UpEventAgeMs >= 25 && completed.MenuQueueDelayMs >= 0, "Release diagnostic records native event age and dispatcher delay");
+                Check(keyboard.GetWindowsKeyDiagnosticText().Contains("kein Funktionsnachweis"), "Snapshot does not claim hook handle proves health");
+            }
+            typeof(AeroStart.App).GetMethod("ShowKeyboardDiagnostic", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(app, null);
+            var diagnosticWindow = (System.Windows.Window)typeof(AeroStart.App).GetField("_keyboardDiagnosticWindow", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(app)!;
+            Check(diagnosticWindow.IsVisible && diagnosticWindow.Title.Contains("Release"), "Release diagnostic opens without modal process pause");
+            diagnosticWindow.Close();
+#endif
+            Check(MenuAcrylicService.AnimationAlpha(1) == 255 && MenuAcrylicService.AnimationAlpha(0) == 0
+                && MenuAcrylicService.AnimationAlpha(0.5) == 128, "Acrylic alpha preserves shared fade and reaches 255");
+            var modeSettings = new SettingsService(Path.Combine(root, "modes.json"));
+            modeSettings.Save(new AppSettings { StartMenuOpacity = 35 });
+            var settingsWindow = new AeroStart.SettingsWindow(modeSettings);
+            var opacitySlider = (System.Windows.Controls.Slider)settingsWindow.FindName("MenuOpacitySlider");
+            Check(opacitySlider.IsEnabled && opacitySlider.Value == 35, "Transparency slider restores saved value");
+            modeSettings.Save(modeSettings.Current with { AcrylicEnabled = true });
+            Check(opacitySlider.IsEnabled && opacitySlider.Value == 35 && modeSettings.Current.StartMenuOpacity == 35, "Disabled acrylic experiment leaves transparency slider enabled");
+            var acrylicToggle = (System.Windows.Controls.CheckBox)settingsWindow.FindName("AcrylicToggle");
+            Check(!acrylicToggle.IsEnabled && acrylicToggle.IsChecked == false, "Acrylic remains visibly unavailable despite saved on state");
+            var persistedMode = new SettingsService(modeSettings.FilePath);
+            persistedMode.Load();
+            Check(persistedMode.Current.AcrylicEnabled && persistedMode.Current.StartMenuOpacity == 35, "Acrylic and retained transparency value persist together");
+            modeSettings.Save(modeSettings.Current with { AcrylicEnabled = false });
+            Check(opacitySlider.IsEnabled && opacitySlider.Value == 35, "Transparency re-enables slider with retained value");
+            settingsWindow.Close();
             var menu = new AeroStart.MainWindow();
             var frame = (System.Windows.Controls.Border)menu.FindName("GlassFrame");
             var frameContent = (System.Windows.Controls.Grid)frame.Child;
@@ -163,6 +317,28 @@ internal static class Program
             menu.ApplySettings(new AppSettings());
             Check(sidebar.Background is SolidColorBrush { Color.A: 0 }, "Sidebar remains untinted at full menu opacity");
             Check(programs.Items.Count == 1, "Unpin update retains ordinary entry");
+            Check(typeof(AeroStart.MainWindow).GetField("_acrylic", flags)!.GetValue(menu) is null, "Default off creates no acrylic window");
+            _ = new System.Windows.Interop.WindowInteropHelper(menu).EnsureHandle();
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = true });
+            Check(typeof(AeroStart.MainWindow).GetField("_acrylic", flags)!.GetValue(menu) is null, "Saved acrylic on never creates host");
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = false });
+            Check(typeof(AeroStart.MainWindow).GetField("_acrylic", flags)!.GetValue(menu) is null, "Acrylic HWND released on disable");
+            Check(((Brush)menu.Resources["PanelBrush"]).Opacity == 1, "Disabling acrylic restores old palette");
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = true, StartMenuOpacity = 30 });
+            var acrylicPanelOpacity = ((Brush)menu.Resources["PanelBrush"]).Opacity;
+            var acrylicFrameOpacity = ((Brush)menu.Resources["WindowBackgroundBrush"]).Opacity;
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = true, StartMenuOpacity = 100 });
+            Check(acrylicPanelOpacity == (System.Windows.SystemParameters.HighContrast ? 1 : 0.3)
+                && acrylicFrameOpacity == (System.Windows.SystemParameters.HighContrast ? 1 : 0.3)
+                && ((Brush)menu.Resources["PanelBrush"]).Opacity == 1
+                && ((Brush)menu.Resources["WindowBackgroundBrush"]).Opacity == 1, "Transparency follows 30 and 100 even with saved acrylic on");
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = false, StartMenuOpacity = 30 });
+            Check(typeof(AeroStart.MainWindow).GetField("_acrylic", flags)!.GetValue(menu) is null
+                && ((Brush)menu.Resources["PanelBrush"]).Opacity == (System.Windows.SystemParameters.HighContrast ? 1 : 0.3), "Transparency mode restores old opacity and has no acrylic background");
+            Thread.Sleep(300);
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = true });
+            Check(typeof(AeroStart.MainWindow).GetField("_acrylic", flags)!.GetValue(menu) is null, "Repeated saved acrylic on remains unavailable");
+            menu.ApplySettings(new AppSettings { AcrylicEnabled = false });
             menu.Close();
             app.Shutdown();
             Console.WriteLine("PASS: legacy settings, opacity/pin persistence, validation/write errors, pin identity/dedup/missing files, context availability, runas arguments/directory/UAC cancellation, Explorer quoting, foreground/brush isolation and high contrast.");
