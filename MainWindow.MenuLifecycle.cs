@@ -63,35 +63,96 @@ public partial class MainWindow
     private void OpenMenu(Point screenPoint, Rect? anchor)
     {
         Dispatcher.VerifyAccess();
-        if (_closed) return;
-        if (!double.IsFinite(screenPoint.X) || !double.IsFinite(screenPoint.Y)
-            || screenPoint.X < int.MinValue || screenPoint.X > int.MaxValue
-            || screenPoint.Y < int.MinValue || screenPoint.Y > int.MaxValue)
+
+        if (_closed)
+            return;
+
+        if (!double.IsFinite(screenPoint.X) ||
+            !double.IsFinite(screenPoint.Y) ||
+            screenPoint.X < int.MinValue ||
+            screenPoint.X > int.MaxValue ||
+            screenPoint.Y < int.MinValue ||
+            screenPoint.Y > int.MaxValue)
+        {
             throw new ArgumentOutOfRangeException(nameof(screenPoint));
-        var wasVisible = IsVisible;
-        var wasHiding = _isHiding;
+        }
+
+        bool wasVisible = IsVisible;
+        bool wasHiding = _isHiding;
+
         _menuRequested = true;
         _isHiding = false;
+
         GlassFrame.IsHitTestVisible = true;
-        _animationRequest++;
         GlassFrame.RenderTransform = _menuTranslation;
+
+        _animationRequest++;
+
         if (!wasVisible)
         {
             StopMenuAnimation();
-            _menuTranslation.Y = Height;
+
             GlassFrame.Opacity = 0;
+            _menuTranslation.Y = Height;
         }
+
         MenuPlacementService.Position(this, screenPoint, anchor);
+
+        if (!wasVisible)
+            SetCloaked(true);
+
         Show();
+
         _acrylic?.Sync(_menuSettings.StartMenuOpacity);
+
         MenuOpenStateChanged?.Invoke(this, EventArgs.Empty);
+
         Activate();
         ApplyFilter();
         FocusSearchBox();
+
         _ = RefreshWindowsPinsAsync();
-        if (!wasVisible || wasHiding || GlassFrame.Opacity < 1)
+
+        bool shouldAnimate =
+            !wasVisible ||
+            wasHiding ||
+            GlassFrame.Opacity < 1;
+
+        if (shouldAnimate)
             AnimateMenu(true);
+
+        if (!wasVisible)
+            UncloakAfterRender();
     }
+
+    private void UncloakAfterRender()
+    {
+        int frames = 0;
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            frames++;
+            bool presented = frames >= 4 && GlassFrame.Opacity >= 0.15;
+            if (!presented && frames < 30)
+                return;
+            CompositionTarget.Rendering -= handler;
+            SetCloaked(false);
+        };
+        CompositionTarget.Rendering += handler;
+    }
+
+    private void SetCloaked(bool cloaked)
+    {
+        IntPtr handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+        int noTransitions = 1;
+        _ = DwmSetWindowAttribute(handle, 3, ref noTransitions, sizeof(int));
+        int value = cloaked ? 1 : 0;
+        _ = DwmSetWindowAttribute(handle, 13, ref value, sizeof(int));
+    }
+
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     private void HideMenu()
     {
@@ -105,44 +166,91 @@ public partial class MainWindow
         AnimateMenu(false);
     }
 
-    private void AnimateMenu(bool opening)
+    private Action? AnimateMenu(bool opening)
     {
-        var request = ++_animationRequest;
-        var opacity = GlassFrame.Opacity;
-        var offset = _menuTranslation.Y;
+        int request = ++_animationRequest;
+
+        double opacity = GlassFrame.Opacity;
+        double offset = _menuTranslation.Y;
+
         StopMenuAnimation();
+
         GlassFrame.Opacity = opacity;
         _menuTranslation.Y = offset;
-        if (!_animationEnabled || !SystemParameters.ClientAreaAnimation || SystemParameters.HighContrast)
+
+        if (!_animationEnabled ||
+            !SystemParameters.ClientAreaAnimation ||
+            SystemParameters.HighContrast)
         {
             CompleteMenuAnimation(opening, request);
-            return;
+            return null;
         }
-        var duration = TimeSpan.FromMilliseconds(opening ? 180 : 120);
-        var ease = new CubicEase { EasingMode = opening ? EasingMode.EaseOut : EasingMode.EaseIn };
-        var slide = new DoubleAnimation(offset, opening ? 0 : 24, duration) { EasingFunction = ease };
-        var fade = new DoubleAnimation(opacity, opening ? 1 : 0, duration) { EasingFunction = ease };
-        fade.Completed += (_, _) => CompleteMenuAnimation(opening, request);
-        _menuTranslation.BeginAnimation(TranslateTransform.YProperty, slide, HandoffBehavior.SnapshotAndReplace);
-        GlassFrame.BeginAnimation(UIElement.OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
+
+        var duration = TimeSpan.FromMilliseconds(
+            opening ? 180 : 120);
+
+        var ease = new CubicEase
+        {
+            EasingMode = opening
+                ? EasingMode.EaseOut
+                : EasingMode.EaseIn
+        };
+
+        var slide = new DoubleAnimation(
+            offset,
+            opening ? 0 : 24,
+            duration)
+        {
+            EasingFunction = ease
+        };
+
+        var fade = new DoubleAnimation(
+            opacity,
+            opening ? 1 : 0,
+            duration)
+        {
+            EasingFunction = ease
+        };
+
+        fade.Completed += (_, _) =>
+            CompleteMenuAnimation(opening, request);
+
+        _menuTranslation.BeginAnimation(
+            TranslateTransform.YProperty,
+            slide,
+            HandoffBehavior.SnapshotAndReplace);
+
+        GlassFrame.BeginAnimation(
+            UIElement.OpacityProperty,
+            fade,
+            HandoffBehavior.SnapshotAndReplace);
+
+        return null;
     }
 
     private void CompleteMenuAnimation(bool opening, int request)
     {
-        if (_closed || request != _animationRequest) return;
+        if (_closed || request != _animationRequest)
+            return;
+
         StopMenuAnimation();
+
         if (opening)
         {
             _menuTranslation.Y = 0;
             GlassFrame.Opacity = 1;
+            _isHiding = false;
         }
         else
         {
+            _menuTranslation.Y = Height;
+            GlassFrame.Opacity = 0;
+
             Hide();
+
             _isHiding = false;
-            _menuTranslation.Y = 0;
-            GlassFrame.Opacity = 1;
         }
+
         _acrylic?.Sync(_menuSettings.StartMenuOpacity);
     }
 
@@ -153,3 +261,5 @@ public partial class MainWindow
     }
 
 }
+
+

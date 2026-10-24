@@ -10,6 +10,12 @@ Der eingefrorene Anwendungsstand ist über den annotierten Tag `experimental-fre
 
 Das Prerelease verwendet diesen unveränderten Tag und bietet ausschließlich die von GitHub erzeugten Quellarchive an, keine fertigen Binärpakete oder Installer. Dokumentationskorrekturen auf dem gleichnamigen Branch können nach dem Freeze liegen; sie ändern weder den Tag noch dessen Quellarchiv. Diese README beschreibt den Funktionsumfang des eingefrorenen Anwendungscodes.
 
+## Experimentelles Update v0.2.1: Behebung des Render-Blitzes beim Öffnen
+
+Ab dem zweiten Öffnen des Menüs war kurz ein graues Rechteck beziehungsweise das vollständige Menü sichtbar, bevor die Öffnungsanimation begann. Diagnose: Der WPF-Zustand im ersten Frame war korrekt (`Y ≈ 610`, `Opacity 0`), der Blitz entstand erst bei der Präsentation des erneut angezeigten Layered Windows (`AllowsTransparency`). Beim ersten Öffnen trat er nicht auf. Die Ursache wurde nicht isoliert nachgewiesen; die Beschreibung ist die plausibelste Erklärung zu den Testergebnissen.
+
+Behebung in `MainWindow.MenuLifecycle.cs`: Beim Öffnen eines unsichtbaren Fensters wird es vor `Show()` per DWM-Cloaking (`DWMWA_CLOAK`) unsichtbar gehalten, DWM-Übergänge sind dabei deaktiviert. Ein einmaliger `CompositionTarget.Rendering`-Handler hebt das Cloaking auf, sobald mindestens vier Frames gerendert wurden und die Menü-Deckkraft mindestens 0,15 erreicht hat, spätestens nach 30 Frames. Positionierung, Taskleisten-Offset, DPI, Mehrmonitorbetrieb, Tastatur-Hook, Animationsdauer und Easing sind unverändert. Das Menü erscheint dadurch etwa 30–50 ms später. Visuell geprüft wurden wiederholtes Öffnen und Schließen sowie der Betrieb mit und ohne Animation; Debug-/Release-Builds und FeatureChecks liefen erfolgreich. Weitere Windows-/Monitor-Konfigurationen wurden nicht geprüft.
+
 ## Funktionen
 
 ### Programme und Suche
