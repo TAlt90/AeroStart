@@ -385,6 +385,60 @@ internal static class Program
             Check(frame.BorderThickness == new System.Windows.Thickness(1)
                 && !frameContent.Children.OfType<System.Windows.Controls.Border>().Any(border => System.Windows.Controls.Grid.GetRowSpan(border) == 3 && border.BorderThickness != new System.Windows.Thickness(0)), "Exactly one outer menu contour");
             var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var translation = (System.Windows.Media.TranslateTransform)frame.RenderTransform;
+            var animate = typeof(AeroStart.MainWindow).GetMethod("AnimateMenu", flags)!;
+            var complete = typeof(AeroStart.MainWindow).GetMethod("CompleteMenuAnimation", flags)!;
+            var requestField = typeof(AeroStart.MainWindow).GetField("_animationRequest", flags)!;
+            Check(menu.Background is SolidColorBrush { Color.A: 0 }
+                && ((System.Windows.Controls.Grid)menu.Content).Background is SolidColorBrush { Color.A: 0 }
+                && frame.Opacity == 0 && translation.Y == menu.Height, "Initial render state has no opaque outer background");
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                menu.ApplySettings(new AppSettings { AnimateMenu = false });
+                animate.Invoke(menu, [true]);
+                Check(frame.Opacity == 1 && translation.Y == 0 && !frame.HasAnimatedProperties,
+                    "Disabled animation reaches fully visible state synchronously");
+                animate.Invoke(menu, [false]);
+                Check(frame.Opacity == 0 && translation.Y == menu.Height && !frame.HasAnimatedProperties,
+                    "Closed state stays transparent and translated instead of resetting visible");
+            }
+            menu.ApplySettings(new AppSettings { AnimateMenu = true });
+            animate.Invoke(menu, [true]);
+            var openingRequest = (int)requestField.GetValue(menu)!;
+            animate.Invoke(menu, [false]);
+            var closingRequest = (int)requestField.GetValue(menu)!;
+            complete.Invoke(menu, [true, openingRequest]);
+            Check((int)requestField.GetValue(menu)! == closingRequest, "Old opening completion cannot replace closing request");
+            animate.Invoke(menu, [true]);
+            var reopenedRequest = (int)requestField.GetValue(menu)!;
+            complete.Invoke(menu, [false, closingRequest]);
+            Check((int)requestField.GetValue(menu)! == reopenedRequest, "Old close completion cannot cancel rapid reopen");
+            complete.Invoke(menu, [true, reopenedRequest]);
+            Check(frame.Opacity == 1 && translation.Y == 0 && !frame.HasAnimatedProperties,
+                "Open completion preserves final visible state when removing clocks");
+            animate.Invoke(menu, [false]);
+            complete.Invoke(menu, [false, (int)requestField.GetValue(menu)!]);
+            Check(frame.Opacity == 0 && translation.Y == menu.Height
+                && (double)frame.GetAnimationBaseValue(System.Windows.UIElement.OpacityProperty) == 0,
+                "Close completion leaves transparent base value after removing clocks");
+            menu.ApplySettings(new AppSettings { AnimateMenu = true });
+            translation.Y = menu.Height;
+            frame.Opacity = 0;
+            var resumePrepared = (Action?)null;
+            animate.Invoke(menu, [true]);
+            if (System.Windows.SystemParameters.ClientAreaAnimation && !System.Windows.SystemParameters.HighContrast)
+                Check(frame.HasAnimatedProperties && translation.HasAnimatedProperties
+                    && frame.Opacity == 0 && translation.Y == menu.Height,
+                    "Opening clocks start at exact closed values");
+            else Check(frame.Opacity == 1 && translation.Y == 0,
+                "System-disabled animation completes immediately");
+            animate.Invoke(menu, [false]);
+            complete.Invoke(menu, [false, (int)requestField.GetValue(menu)!]);
+            resumePrepared?.Invoke();
+            Check(frame.Opacity == 0 && translation.Y == menu.Height && !frame.HasAnimatedProperties,
+                "Close completion removes clocks and leaves closed state");
+            Check(typeof(AeroStart.MainWindow).GetFields(flags).All(field => !field.Name.StartsWith("_diagnostic", StringComparison.Ordinal)),
+                "Temporary GlassFrame diagnosis switches removed");
             var actualItem = new StartItem("Executable", exe, "");
             typeof(AeroStart.MainWindow).GetField("_all", flags)!.SetValue(menu, new List<StartItem> { actualItem });
             menu.ApplySettings(new AppSettings { StartMenuOpacity = 30, PinnedPrograms = pins });
