@@ -12,6 +12,7 @@ public partial class MainWindow
     private bool _menuRequested;
     private int _animationRequest;
     private bool _animationEnabled = true;
+    private MenuAcrylicService? _acrylic;
 
     public bool IsMenuOpen => IsVisible && !_isHiding;
     public event EventHandler? MenuOpenStateChanged;
@@ -20,11 +21,32 @@ public partial class MainWindow
     public void ApplySettings(AppSettings settings)
     {
         _animationEnabled = settings.AnimateMenu;
+        _menuSettings = settings;
+        ConfigureAcrylic();
+        ApplyMenuAppearance();
+        ApplyFilter();
         SystemToolsButton.Visibility = settings.ShowSystemTools ? Visibility.Visible : Visibility.Collapsed;
+        TaskManagerShortcutButton.Visibility = settings.ShowTaskManagerShortcut ? Visibility.Visible : Visibility.Collapsed;
         if (!settings.ShowSystemTools) CloseSystemTools();
     }
 
+    private void ConfigureAcrylic()
+    {
+        var enabled = AcrylicAvailable && _menuSettings.AcrylicEnabled && !SystemParameters.HighContrast;
+        if (!enabled)
+        {
+            _acrylic?.Dispose();
+            _acrylic = null;
+            return;
+        }
+        if (_source == null) return;
+        _acrylic ??= new MenuAcrylicService(this, GlassFrame, _menuTranslation);
+        _acrylic.Opacity = _menuSettings.StartMenuOpacity;
+        _acrylic.Sync(_menuSettings.StartMenuOpacity);
+    }
+
     private void ShowMenu() => ShowAtScreenPoint(MenuPlacementService.CursorPosition);
+    internal static bool AcrylicAvailable => false;
 
     /// <summary>Opens on the monitor containing this point in physical screen pixels.</summary>
     public void ShowAtScreenPoint(Point screenPoint) => OpenMenu(screenPoint, null);
@@ -61,10 +83,12 @@ public partial class MainWindow
         }
         MenuPlacementService.Position(this, screenPoint, anchor);
         Show();
+        _acrylic?.Sync(_menuSettings.StartMenuOpacity);
         MenuOpenStateChanged?.Invoke(this, EventArgs.Empty);
         Activate();
         ApplyFilter();
         FocusSearchBox();
+        _ = RefreshWindowsPinsAsync();
         if (!wasVisible || wasHiding || GlassFrame.Opacity < 1)
             AnimateMenu(true);
     }
@@ -119,6 +143,7 @@ public partial class MainWindow
             _menuTranslation.Y = 0;
             GlassFrame.Opacity = 1;
         }
+        _acrylic?.Sync(_menuSettings.StartMenuOpacity);
     }
 
     private void StopMenuAnimation()

@@ -171,7 +171,7 @@ public sealed class TaskbarIntegrationService : IDisposable
                     if (!_rescan.IsEnabled) _rescan.Start();
                 }
                 else if (covered.Contains(TaskbarDiscovery.Native.MonitorFromWindow(entry.Target.Window, 2))) entry.Overlay.Hide();
-                else if (!entry.Overlay.Place(entry.Target.ButtonBounds, entry.Target.Window, entry.Target.VisualOffsetX + 8,  cause))
+                else if (!entry.Overlay.Place(entry.Target.ButtonBounds, entry.Target.Window, entry.Target.VisualOffsetX - 2,  cause))
                 {
                     SetStatus("Overlay-Trefferfläche wird von einem anderen Fenster verdeckt; keine Klickweiterleitung an Windows.");
                     if (!diagnose) diagnose = _diagnostics.TryBegin(false);

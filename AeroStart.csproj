@@ -1,8 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**;BackdropHost\**</DefaultItemExcludes>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AeroStart</AssemblyName>
@@ -11,5 +16,17 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\AeroStart.ico" />
+    <Content Update="Assets\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="Tests\**\*.cs" />
+    <Compile Remove="BackdropHost\**\*.cs" />
+    <ProjectReference Include="BackdropHost\AeroStart.BackdropHost.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250909003" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>AeroStart.FeatureChecks</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".github\copilot-instructions.md" />
+    <None Include="BackdropHost\AeroStart.BackdropHost.csproj" />
   </ItemGroup>
 </Project>

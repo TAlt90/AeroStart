@@ -4,11 +4,44 @@
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Themes/AeroControls.xaml"/></ResourceDictionary.MergedDictionaries>
+      <Style x:Key="SettingsToggleSwitch" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template"><Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <Border x:Name="FocusBorder" BorderBrush="Transparent" BorderThickness="2" CornerRadius="5" Padding="3" Background="Transparent">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <ContentPresenter VerticalAlignment="Center" Margin="-5,0,16,0" RecognizesAccessKey="True"/>
+                <Grid Grid.Column="1" Width="40" Height="20" VerticalAlignment="Center">
+                  <Border x:Name="Track" CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource ForegroundBrush}" Background="{DynamicResource SearchBrush}"/>
+                  <Ellipse x:Name="Knob" Width="12" Height="12" Margin="4,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Fill="{DynamicResource ForegroundBrush}">
+                    <Ellipse.RenderTransform><TranslateTransform x:Name="KnobTranslation"/></Ellipse.RenderTransform>
+                  </Ellipse>
+                </Grid>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource AccentTextBrush}"/>
+                <Setter TargetName="Knob" Property="RenderTransform"><Setter.Value><TranslateTransform X="20"/></Setter.Value></Setter>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Track" Property="BorderThickness" Value="2"/></Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="FocusBorder" Property="Opacity" Value="0.5"/></Trigger>
+              <Trigger Property="IsChecked" Value="{x:Null}"><Setter TargetName="Knob" Property="RenderTransform"><Setter.Value><TranslateTransform X="10"/></Setter.Value></Setter></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value></Setter>
+      </Style>
       <Style x:Key="Section" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource PanelBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="8"/><Setter Property="Padding" Value="20"/><Setter Property="Margin" Value="0,0,0,14"/>
       </Style>
       <Style TargetType="RadioButton">
+        <EventSetter Event="Click" Handler="SettingsControl_Click"/>
         <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/><Setter Property="Margin" Value="0,8,0,0"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
           <Border x:Name="RadioBorder" Padding="10" Background="{DynamicResource SearchBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="5">
@@ -42,12 +75,12 @@
               <RadioButton x:Name="AeroMenu" GroupName="Menu" Content="AeroStart"/><RadioButton x:Name="WindowsMenu" GroupName="Menu" Content="Windows-Standard"/>
               <TextBlock Text="Gilt für Tray und Hotkey; Windows-Taste optional im Experimentalmodus." TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
             </StackPanel></Border>
-            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Mit Windows starten · In Vorbereitung" FontWeight="SemiBold"/><TextBlock Text="Noch kein Autostarteintrag. Späterer Hintergrundstart über --background." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel><CheckBox x:Name="AutostartToggle" Style="{StaticResource SettingsToggleSwitch}" Content="Mit Windows starten" AutomationProperties.Name="Mit Windows starten" Click="Autostart_Click"/><TextBlock Text="Startet AeroStart bei der Windows-Anmeldung im Infobereich." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBlock x:Name="AutostartStatusText" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
           </StackPanel>
           <StackPanel x:Name="IntegrationPage" Visibility="Collapsed">
             <TextBlock Text="Integration" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,16"/>
-            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Tastaturintegration" FontWeight="SemiBold"/><RadioButton x:Name="StableKeyboard" GroupName="KeyboardMode" Content="Stabil – Strg + Alt + Leertaste"/><RadioButton x:Name="ExperimentalKeyboard" GroupName="KeyboardMode" Content="Experimentell – Windows-Taste verwenden" IsEnabled="{Binding IsChecked, ElementName=AeroMenu}"/><TextBlock Text="Standard: Stabil. Experimentell öffnet die alleinige linke/rechte Windows-Taste beim Loslassen. Kombinationen werden weitergereicht. Synthetische Shell-Maskierung: Einschränkungen bei erhöhten Anwendungen, Remotedesktop und anderen Remappern. Nur bei aktivem AeroStart und AeroStart-Menü wirksam. Änderungen speichern." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
-            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Startbuttons überdecken" FontWeight="SemiBold"/><RadioButton x:Name="TaskbarButtonsOff" GroupName="TaskbarButtons" Content="Deaktiviert (Standard)"/><RadioButton x:Name="TaskbarButtonsOn" GroupName="TaskbarButtons" Content="AeroStart-Buttons auf erkannten Taskleisten" IsEnabled="{Binding IsChecked, ElementName=AeroMenu}"/><TextBlock Text="Nur bei aktivem AeroStart-Menü wirksam. Nicht eindeutig erkennbare Startbuttons werden ausgelassen. Native Buttons und Explorer bleiben unverändert; optische Abweichungen bei Transparenz sind möglich." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBlock x:Name="TaskbarStatusText" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Tastaturintegration" FontWeight="SemiBold"/><RadioButton x:Name="StableKeyboard" GroupName="KeyboardMode" Content="Stabil – Strg + Alt + Leertaste"/><RadioButton x:Name="ExperimentalKeyboard" GroupName="KeyboardMode" Content="Experimentell – Windows-Taste verwenden" IsEnabled="{Binding IsChecked, ElementName=AeroMenu}"/><TextBlock Text="Experimentell öffnet die alleinige linke/rechte Windows-Taste beim Loslassen. Kombinationen werden weitergereicht. Synthetische Shell-Maskierung: Einschränkungen bei erhöhten Anwendungen, Remotedesktop und anderen Remappern. Nur bei aktivem AeroStart und AeroStart-Menü wirksam." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Startbuttons überdecken" FontWeight="SemiBold"/><RadioButton x:Name="TaskbarButtonsOff" GroupName="TaskbarButtons" Content="Deaktiviert"/><RadioButton x:Name="TaskbarButtonsOn" GroupName="TaskbarButtons" Content="AeroStart-Buttons auf erkannten Taskleisten" IsEnabled="{Binding IsChecked, ElementName=AeroMenu}"/><TextBlock Text="Nur bei aktivem AeroStart-Menü wirksam. Nicht eindeutig erkennbare Startbuttons werden ausgelassen. Native Buttons und Explorer bleiben unverändert; optische Abweichungen bei Transparenz sind möglich." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBlock x:Name="TaskbarStatusText" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
             <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Monitor für Tastaturaufruf" FontWeight="SemiBold"/>
               <RadioButton x:Name="MouseMonitor" GroupName="Monitor" Content="Mauszeiger"/><RadioButton x:Name="PrimaryMonitor" GroupName="Monitor" Content="Hauptmonitor"/><RadioButton x:Name="ActiveMonitor" GroupName="Monitor" Content="Aktives Fenster"/>
               <TextBlock Text="Gilt für AeroStart. Windows positioniert sein Standardmenü selbst." TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
@@ -56,18 +89,26 @@
           <StackPanel x:Name="AppearancePage" Visibility="Collapsed">
             <TextBlock Text="Darstellung" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,16"/>
             <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Design folgt Windows" FontWeight="SemiBold"/><TextBlock Text="Hell-/Dunkelmodus, Hochkontrast und Akzentfarbe werden automatisch übernommen." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
-            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Startmenü-Animation" FontWeight="SemiBold"/><RadioButton x:Name="AnimationOn" GroupName="Animation" Content="Aktiviert"/><RadioButton x:Name="AnimationOff" GroupName="Animation" Content="Deaktiviert"/></StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel>
+              <TextBlock Text="Startmenü-Deckkraft" FontWeight="SemiBold"/>
+              <Slider x:Name="MenuOpacitySlider" Minimum="30" Maximum="100" TickFrequency="5" SmallChange="5" LargeChange="5" IsSnapToTickEnabled="True" Value="100" ValueChanged="MenuOpacity_Changed" Margin="0,12,0,4" AutomationProperties.Name="Startmenü-Deckkraft"/>
+              <TextBlock Text="{Binding Value, ElementName=MenuOpacitySlider, StringFormat={}{0:0} %}"/>
+              <TextBlock Text="Texte und Symbole bleiben deckend. Im Hochkontrastmodus bleiben die Hintergründe zum Schutz der Lesbarkeit vollständig deckend." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,0"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel>
+              <CheckBox x:Name="AcrylicToggle" Style="{StaticResource SettingsToggleSwitch}" Content="Mattglas-Effekt" IsEnabled="False" Checked="Acrylic_Changed" Unchecked="Acrylic_Changed" Foreground="{DynamicResource ForegroundBrush}" AutomationProperties.Name="Mattglas-Effekt"/>
+              <TextBlock Text="Experimentell – derzeit nicht verfügbar" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel><CheckBox x:Name="AnimationToggle" Style="{StaticResource SettingsToggleSwitch}" Content="Startmenü-Animation" Click="SettingsControl_Click"/><TextBlock Text="Animiert das Öffnen und Schließen des Startmenüs." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
           </StackPanel>
           <StackPanel x:Name="FeaturesPage" Visibility="Collapsed">
             <TextBlock Text="Funktionen" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,16"/>
-            <Border Style="{StaticResource Section}"><StackPanel><TextBlock Text="Systemwerkzeuge anzeigen" FontWeight="SemiBold"/><RadioButton x:Name="ToolsOn" GroupName="Tools" Content="Anzeigen"/><RadioButton x:Name="ToolsOff" GroupName="Tools" Content="Ausblenden"/></StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel><CheckBox x:Name="SystemToolsToggle" Style="{StaticResource SettingsToggleSwitch}" Content="Systemwerkzeuge anzeigen" Click="SettingsControl_Click"/><TextBlock Text="Zeigt das Untermenü Systemwerkzeuge." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
+            <Border Style="{StaticResource Section}"><StackPanel><CheckBox x:Name="TaskManagerShortcutToggle" Style="{StaticResource SettingsToggleSwitch}" Content="Task-Manager-Schnellzugriff" Click="SettingsControl_Click"/><TextBlock Text="Zeigt oben rechts im Startmenü ein Task-Manager-Symbol." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel></Border>
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
     </Grid>
-    <Grid Grid.Row="2" Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <TextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,16,0"/>
-      <Button Grid.Column="1" Style="{StaticResource MenuButton}" Content="Speichern" Padding="22,10" Click="Save_Click"/>
-    </Grid>
+    <TextBlock x:Name="StatusText" Grid.Row="2" Margin="0,18,0,0" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
   </Grid>
 </Window>

@@ -1,234 +1,158 @@
-# AeroStart – Windows-7-inspiriertes Startmenü
+# AeroStart
 
-Erster funktionsfähiger WPF-Prototyp für Windows 11, geschrieben in C# / .NET 10.
+Windows-7-inspiriertes Startmenü für Windows 11, entwickelt mit WPF, C# und .NET 10.
 
-## Voraussetzungen
-- Windows 11
-- Visual Studio 2022 (mit .NET-10-SDK) oder Visual Studio 2026
-- Workload **.NET-Desktopentwicklung**
+> **Experimentelles Prerelease – keine stabile Freigabe.** Mattglas ist deaktiviert. Die experimentelle Umleitung der einzelnen Windows-Taste hat einen bekannten sporadischen Fehler im Release-Build. Für den regulären Aufruf Strg+Alt+Leertaste oder das Tray-Menü verwenden.
 
-## Starten
-1. `AeroStart.csproj` in Visual Studio öffnen.
-2. Falls erforderlich .NET 10 SDK installieren.
-3. F5 drücken. Das Einstellungsfenster öffnet sich; AeroStart bleibt danach im Infobereich aktiv.
-4. Mit **Strg + Alt + Leertaste** das Menü ein- und ausblenden.
-5. Sofort tippen und per Suche filtern; Pfeil hoch/runter wählt Treffer, Enter oder Doppelklick startet. Escape leert zuerst die Suche und schließt bei leerer Suche das Menü.
+## Experimenteller Freeze
 
-## Einstellungen, Tray und Startmodi
-Der manuelle Start ohne Argumente öffnet die Einstellungen mit den Kategorien Allgemein, Integration, Darstellung und Funktionen. Hell-/Dunkelmodus, Hochkontrast und Akzentfarbe folgen Windows. „Speichern“ übernimmt die Auswahl sofort und schreibt sie atomar nach `%LocalAppData%\AeroStart\settings.json`. Eine fehlende Datei verwendet Standardwerte; beschädigte oder nicht lesbare Dateien werden mit Hinweis durch Standardwerte ersetzt, ohne sie beim Laden zu überschreiben.
+Der eingefrorene Anwendungsstand ist über den annotierten Tag `experimental-freeze-2026-10-24` erreichbar, Commit `71bc1687547db6b675f55fd93962706d61404eea`.
 
-Wirksam sind die Startmenü-Auswahl AeroStart/Windows-Standard, die Monitorauswahl Mauszeiger/Hauptmonitor/aktives Fenster, Systemwerkzeuge anzeigen, Animation aktivieren, Tastaturmodus Stabil/Experimentell und die optionalen Startbutton-Overlays. Die Monitorauswahl gilt nur für Tastaturaufrufe von AeroStart; Windows positioniert sein Standardmenü selbst. „Mit Windows starten“ bleibt **In Vorbereitung**. Keine Autostarteinträge oder Explorer-Änderungen.
+Das Prerelease verwendet diesen unveränderten Tag und bietet ausschließlich die von GitHub erzeugten Quellarchive an, keine fertigen Binärpakete oder Installer. Dokumentationskorrekturen auf dem gleichnamigen Branch können nach dem Freeze liegen; sie ändern weder den Tag noch dessen Quellarchiv. Diese README beschreibt den Funktionsumfang des eingefrorenen Anwendungscodes.
 
-- Ohne Argumente: Einstellungen öffnen.
-- `--background`: unsichtbar im Tray starten; kein Menü-/Einstellungsfenster erzeugen.
-- `--menu`: ausgewähltes Startmenü öffnen.
-- Tray-Rechtsklick: Startmenü öffnen, Einstellungen, AeroStart aktivieren/deaktivieren, Beenden.
-- Tray-Doppelklick: Einstellungen öffnen.
-- Deaktiviert: Menüaufrufe verwenden Windows-Standard; die gespeicherte Menüauswahl bleibt erhalten.
+## Funktionen
 
-Das Schließen der Einstellungen beendet den Hintergrundprozess nicht. Nur „Beenden“ im Tray beendet AeroStart und entfernt Icon/Hotkey/Hook. Pro Benutzer und Sitzung existiert eine Instanz; weitere Starts leiten Einstellungen-/Menüaufrufe an diese weiter, `--background` öffnet dabei nichts. Das Tray-Icon wird bei einem Explorer-Neustart neu angemeldet. Das Startmenü bleibt ein eigenes, erst bei Bedarf erzeugtes Fenster. Der Hotkey wird vom getrennten KeyboardIntegrationService verwaltet. Windows-Standard wird über Strg+Escape geöffnet, erst nach Loslassen der Modifikatoren.
+### Programme und Suche
 
-### Phase 2: Tastatur und Sicherheitsgrenzen
-**Stabil (Standard):** Strg+Alt+Leertaste wird mit RegisterHotKey reserviert, löst aber ausschließlich beim beobachteten Loslassen der Leertaste aus. Ein WH_KEYBOARD_LL-Hook beobachtet die Folge; weitere gedrückte Tasten brechen sie ab. Wiederholte KeyDown-Ereignisse lösen keinen zusätzlichen Aufruf aus. Injizierte fremde Eingaben brechen die Geste ab und lösen nichts aus. Der Menüaufruf wird in den Dispatcher gestellt. Die Windows-Taste bleibt im stabilen Modus unangetastet.
+- Alphabetische Programmliste aus den Startmenü-Ordnern des aktuellen Benutzers und aller Benutzer (`.lnk` und `.url`).
+- Suche nach Programmname und ursprünglichem Ordner. Exakte Namen werden bevorzugt; eine Namensheuristik ordnet Hilfs-, Setup- und Deinstallationseinträge nach Hauptprogrammen ein, ohne sie auszublenden.
+- Lokale Anheftungen unter **Angeheftet**, darunter **Alle Programme**. Suche filtert beide Abschnitte.
+- Rechtsklick: **An Start anheften / Von Start lösen**, **Als Administrator ausführen** für auflösbare EXE-Ziele sowie **Dateispeicherort öffnen**, soweit für den Eintrag verfügbar. UAC-Abbruch wird berücksichtigt.
+- Programmicons werden über die Windows-Shell bedarfsgesteuert auf einem STA-Hintergrundthread geladen und für die Sitzung gecacht. Fehlende Icons erhalten ein Ersatzsymbol.
 
-Deaktivieren im Tray entfernt Hook und Hotkey; erneutes Aktivieren registriert neu. Bei Registrierungs-/Hookfehlern steht der Status in den Einstellungen; das Tray bleibt bedienbar. Windows-Standard-Auswahl lässt die Windows-Taste stets unangetastet. Die Hotkey-Monitorwahl verwendet weiterhin Mauszeiger/Hauptmonitor/aktives Fenster und vorhandene DPI-/Taskleistenpositionierung.
+### Windows-Pins: ausschließlich lesender Import
 
-**Experimentell (ausdrücklich aktivieren und speichern):** Die alleinige LWin- oder RWin-Taste öffnet AeroStart beim Loslassen. Wirksam nur bei aktivem AeroStart und gewähltem AeroStart-Menü. Der Modus wird als `KeyboardMode` in settings.json gespeichert; vorhandene Einstellungsdateien starten weiterhin stabil. Zurückschalten auf Stabil, Windows-Standard oder Deaktivieren nimmt die Umleitung sofort zurück. Der bisherige Hotkey bleibt verfügbar; ist er fremdbelegt, kann die experimentelle Windows-Taste trotzdem arbeiten.
+Beim Menüöffnen werden Windows-Start-Pins zusätzlich unter **Angeheftet** eingelesen. Hierfür wird `Export-StartLayout` in einem separaten Prozess mit Timeout verwendet; temporäre Exportdateien werden entfernt. Desktopverknüpfungen und Paket-IDs werden nach Möglichkeit über vorhandene Windows-Shell-Funktionen aufgelöst.
 
-Der Hook lässt physische Win-KeyDowns, Wiederholungen und sämtliche echten Win-Kombinationen durch. Jede weitere gedrückte Taste einschließlich einer zweiten Windows-Taste entwertet die Alleintasten-Geste. Bereits vor Win gedrückte Tasten und fremde injizierte Eingaben verhindern sie ebenfalls. Nur beim alleinigen Win-KeyUp wird die Shell-Startaktion maskiert: `SendInput` sendet die unzugeordnete virtuelle Taste `VK_E8` (Down/Up), solange Windows die Win-Taste noch als gehalten sieht, danach den passenden erweiterten Win-KeyUp. Bei erfolgreichem Senden wird der ursprüngliche KeyUp ersetzt. Eigene Eingaben tragen eine `dwExtraInfo`-Markierung, werden durchgereicht und lösen keine Rekursion aus. Win+E/R/D/L/Tab werden nicht verzögert, geschluckt oder nachgesendet. Bloßes Schlucken des Win-KeyUp genügt für die Shell nicht; deshalb ist die Maskierung notwendig.
+Die Windows-Reihenfolge bleibt vor lokalen Anheftungen erhalten; doppelte Identitäten werden innerhalb dieses Abschnitts zusammengeführt. Der Cache wird bei Menüaufrufen frühestens nach 30 Sekunden erneuert, mit höchstens einem gleichzeitigen Export. Bei Fehlern bleibt der letzte erfolgreiche Sitzungsstand erhalten und ein Hinweis erscheint. Ohne erfolgreichen Import sind lokale Anheftungen weiterhin verfügbar.
 
-**Konkrete Grenzen:** Das ist eine experimentelle Shell-Maskierung, kein von Microsoft garantierter Startmenü-Ersatzvertrag. Fremde Low-Level-Hooks können `VK_E8` beobachten oder synthetische Eingaben blockieren; manche Windows-/Shell-Konfigurationen reagieren abweichend. `SendInput` unterliegt UIPI: Bei höher privilegierten Vordergrundanwendungen kann es scheitern; dafür werden keine Adminrechte oder uiAccess angefordert. Rückgabewert allein bestätigt nur die Eingabeeinreihung, nicht die Verarbeitung durch Explorer. Ein erkannter Fehler oder Teilerfolg gibt den physischen Win-Release weiter, entfernt Hook/Hotkey, meldet den Fehler und startet AeroStart nicht. Nach einem solchen Fehler kann über Stabil/Speichern oder Deaktivieren/Aktivieren neu initialisiert werden. Fremde Blockierung kann nicht immer erkannt werden; im Konfliktfall auf Stabil zurückschalten. Secure Desktop, andere Sitzungen und Remote-/Remapper-Sonderfälle sind nicht garantiert. Windows kann langsame Hooks still entfernen; dann fällt die physische Windows-Taste auf Standardverhalten zurück. Der Prozess legt keine dauerhafte Tastenzuordnung an.
+**Windows-Pins können durch AeroStart nicht angeheftet oder gelöst werden.** Die lokalen Kontextaktionen verändern keine Windows-Pin-Datenbank.
 
-Keine Explorer-Patches, DLL-Injection, globalen Shortcut-Sperren oder externen Pakete. Die Implementierung ist eigenständiger C#-/Win32-Code, ohne übernommene Open-Shell-/ExplorerPatcher-Quellen. Eine zusätzliche native C++-DLL würde die UIPI-/Shell-Grenzen dieses Ansatzes nicht aufheben und ist daher nicht erforderlich.
+### Schnellzugriffe und Systemwerkzeuge
 
-Manuell prüfen: Hotkey halten (kein Öffnen), Space loslassen (ein Aufruf), zusätzliche Taste zwischen Down/Up (kein Aufruf), Wiederholungen/rasches Drücken und geänderte Release-Reihenfolge. Experimentell: LWin/RWin jeweils allein halten/loslassen, Win+E/R/D/Tab, beide Win-Tasten gleichzeitig, vorher gehaltene Modifikatoren, schnelles mehrfaches Drücken. Win+L sperrt tatsächlich den PC und sollte nur bewusst getestet werden. Stabil/Windows-Standard/Tray-Deaktivieren/Beenden müssen sofort das Windows-Standardverhalten wiederherstellen. Erhöhte Vordergrundanwendung, fremde Remapper und gemischte Monitor-DPI gesondert prüfen. Automatisierte reine Tastenfolgentests ersetzen keine echte Windows-Shell-Laufzeitprüfung; diese übernimmt der User.
+Das Menü enthält Zugriffe auf Benutzerordner, Dokumente, Bilder, Explorer, Systemsteuerung, Windows-Einstellungen und den Ausführen-Dialog.
 
-### Phase 3: Taskleisten-Startbuttons
-Unter Integration lässt sich „Startbuttons überdecken“ aktivieren und speichern (`ReplaceStartButtons`, Standard `false`). Wirksam nur bei aktivem AeroStart und ausgewähltem AeroStart-Menü. TaskbarIntegrationService verwaltet ausschließlich eigene, nicht aktivierende Fenster über erkannten Windows-Startbuttons. Die nativen Buttons werden nicht versteckt, umgehängt oder verändert. Deaktivieren der Option, Windows-Standard-Auswahl, Tray-Deaktivieren und Prozessende entfernen sämtliche Overlays.
+Das abschaltbare Untermenü **Systemwerkzeuge** enthält:
 
-`Shell_TrayWnd` und `Shell_SecondaryTrayWnd` werden über Win32 aufgelistet; UI Automation liefert das echte Startbutton-Rechteck. Nur eindeutige, sichtbare Buttons vollständig innerhalb der jeweiligen Taskleiste und des Monitors werden verwendet. Keine fest codierten Bildschirmpositionen, keine geschätzten linken/zentrierten Startbuttonpositionen. Die vorhandene PerMonitorV2-Unterstützung und physische SetWindowPos-Rechtecke berücksichtigen negative Monitorpositionen sowie gemischte DPI. Die Menüpositionierung verwendet den angeklickten Button als Anker und berücksichtigt die jeweilige Taskleistenkante. Klick bei offenem Menü auf demselben Monitor schließt, Klick auf anderem Monitor öffnet dort. Die Tastaturmonitorwahl bleibt unverändert.
+- Task-Manager (`taskmgr.exe`)
+- Geräte-Manager, Datenträgerverwaltung und Computerverwaltung
+- Dienste, Aufgabenplanung und Ereignisanzeige
+- Leistungsüberwachung, Firewall und Netzwerkverbindungen
+- Windows Terminal, sofern installiert
 
-Die Erkennung läuft außerhalb des UI-Threads höchstens einmal gleichzeitig. Out-of-context-WinEvent-Hooks beobachten Fokus, Z-Order, Erzeugen/Entfernen, Sichtbarkeit, Verschieben und Größenänderungen. Ein eigenes Nachrichtenfenster empfängt zusätzlich TaskbarCreated, Anzeige-, DPI-, Geräte- und Einstellungsänderungen. Ereignisse bündeln einen sofort vorgemerkten Positions-/Z-Order-/Vollbildabgleich; UIA-Neuvermessungen werden mit einem einmaligen 100-ms-Timer zusammengefasst. Kein periodisches Polling und kein permanenter Topmost-Timer. Veraltete Scanergebnisse werden nach Deaktivierung verworfen und während eines Scans eingehende Anforderungen nachgeholt. Eigene Overlayfenster erhalten die jeweilige Taskleiste als Besitzer (kein Reparenting nativer Fenster), folgen deren Topmost-Band und werden nur bei abweichender Position/Reihenfolge nachgestellt. Ungültige Taskleistenrechtecke blenden das Overlay aus. Hooks und Nachrichtenfenster werden beim Deaktivieren/Beenden freigegeben.
+**Task-Manager-Schnellzugriff** blendet unabhängig davon ein kleines Symbol oben rechts im Startmenü ein. Sowohl dieses Symbol als auch der feste Untermenüeintrag starten `taskmgr.exe`. Das Abschalten des Schnellzugriffs entfernt den Untermenüeintrag nicht.
 
-Die vollständige UIA-Klickfläche ist ein nicht durchklickbares Clientrechteck; WindowFromPoint prüft nach Platzierung die vier inneren Ecken und die Mitte. Fremde Überdeckung wird als Status gemeldet; AeroStart leitet keine Klicks an Explorer weiter. Sichtbare, nicht minimierte und nicht DWM-gecloakte Vollbildfenster werden für jeden Taskleistenmonitor geprüft, auch bei Fokus auf einem anderen Monitor und bei monitorübergreifenden Fenstern. Betroffene Overlays werden ausgeblendet, nicht über das Vollbild angehoben.
+### Konto und Energie
 
-**Grenzen:** Dies ist eine reversible Überdeckung, kein nativer Shell-Ersatz. Fehlt ein eindeutiger UIA-Startbutton (z. B. fremde Taskleisten, Windows-Build-Abweichungen, ausgeblendete Buttons), bleibt dessen Windows-Button unverändert sichtbar; die Statuszeile nennt erkannte Buttons und Taskleisten. Auto-Hide und animierte Taskleisten können zeitweilig nicht überdeckt sein. WinEvents werden asynchron zugestellt: eine absolute Garantie gegen jeden nativen Klick oder jedes kurzzeitige Überlagern beim Vollbildwechsel ist ohne Shell-Eingriff nicht möglich. Windows-Buttons werden ausdrücklich nicht global gesperrt; bei ausgeblendeten/fehlenden Overlays bleibt Windows zuständig. Blockierte UIA-Provider können die erneute Erkennung verzögern; die Einstellungen und Deaktivierung bleiben unabhängig davon bedienbar. Windows-Acryl/Transparenz und DWM-Rundungen sind nicht pixelgenau nachbildbar: eigene Flächen folgen dem vorhandenen Windows-abhängigen AeroStart-Design. Rechtsklick/Win+X am überdeckten nativen Button werden nicht weitergeleitet; die Integration betrifft den normalen Linksklick. Keine DLL-Injection, Explorer-Patches, Adminrechte, reservierten Taskleistenflächen oder dauerhaften Systemänderungen.
+Profilbild und Anzeigename öffnen ein Kontomenü mit Windows-Kontoeinstellungen, Kontoverwaltung und dem Link zum Microsoft-Konto. Anzeigename und Kontobild werden lokal ermittelt; fehlende Daten erhalten einen neutralen Ersatz. Eine E-Mail wird nur bei passend ermittelter Windows-Kontoidentität angezeigt. Microsoft-365-Abonnement und OneDrive-Kontingent werden nicht dargestellt; es gibt keine automatische Cloud-Anmeldung.
 
-### Diagnose sporadischer Startbutton-Überdeckung
-Noch keine weitere Z-Order-Korrektur: Die Diagnose beobachtet die vorhandene Reparaturlogik. Bei ereignisgesteuert erkannter nativer Trefferabweichung werden Snapshots **vor** und **nach** der bisherigen Reparatur gespeichert. Manuell: die EXE derselben laufenden Installation mit `--diagnose-taskbar` aufrufen. Die bestehende Einzelinstanz-Pipe reicht den Befehl weiter; keine neue Tastenkombination, keine Menüöffnung und keine durch diesen Befehl veranlasste Platzierung. Auch ohne verwaltete Overlays enthält die Aufnahme jetzt eine unabhängige native Taskleisten-/Eigenfensterinventur. Scan-ID, Beginn, Dauer und letzter Arbeitsschritt werden erfasst. Ein einmaliger Wächter pro Scan schreibt nach fünf Sekunden automatisch, wenn der Scan noch läuft; auch ein abgeschlossener Scan ohne Overlays löst eine Aufnahme aus. Keine Wiederholungsschleife bei hängendem Scan. Der neue Status ist in den Einstellungen sichtbar; zum Erhalten des Fehlerzustands möglichst per bereits vorbereitetem Terminal auslösen, nicht erst das Menü öffnen.
+Sperren, Abmelden, Herunterfahren, Neustarten und Energiesparen rufen echte Windows-Aktionen auf. Abmelden und Energieaktionen haben eine Sicherheitsabfrage; Sperren wirkt unmittelbar. Verfügbarkeit und Berechtigungen einzelner Systemwerkzeuge bestimmt Windows.
 
-Datei: `%LOCALAPPDATA%\AeroStart\Diagnostics\taskbar.jsonl`. Schema 2 schreibt zuerst eine Zeile `RecordType: native` mit Prozess-ID und Snapshots, ohne vorher auf UIA zu warten. Danach folgt eine über `CaptureId` zugeordnete Zeile `RecordType: uia-result` mit `FreshUia` oder einem expliziten Status. Nach zwei Sekunden Wartezeit wird `timeout-query-not-cancelled` protokolliert. Ein blockierender UIA-Aufruf wird nicht gewaltsam abgebrochen; solange er läuft, werden keine weiteren UIA-Abfragen gestartet (`skipped-previous-query-still-running`), native Aufnahmen bleiben möglich. Ab 2 MiB wird vor der nächsten Zeile nach `taskbar.jsonl.previous` rotiert (eine Vorgängerdatei). Keine Fenstertitel, vollständigen Prozesspfade oder Tastatureingaben; HWNDs, Prozessnamen/PIDs und Bildschirmgeometrie sind enthalten. Vor Weitergabe prüfen. Dateifehler dürfen die Integration nicht deaktivieren; manuell werden sie als Status gemeldet.
-Zur schnelleren Auswertung sind die wichtigsten Diagnosefelder stabil benannt: `CaptureId`, `RecordType`, `ScanId`, `ScanPhase`, `DurationMs`, `LastOperation`, `FreshUiaStatus` und `DiscoveryDecisions`.
+## Einstellungen und Darstellung
 
-Enthalten sind Monitorgerät/-rechtecke, Overlay-/Taskleisten-HWND und Klassen, PID/Prozessname, physische Bounds, Sichtbarkeit, DPI, Besitzer/Parent/Root, Topmost-/Transparent-/Layered-Styles, Cloaking, Z-Order-Index (0 = oberstes enumeriertes Top-Level-Fenster) und unmittelbare Nachbarn. Sichtbare überschneidende Fenster oberhalb des Overlays werden als **Kandidaten** aufgelistet, einschließlich des von WindowFromPoint gefundenen Rootfensters. Mittelpunkt-Treffer und ChildWindowFromPointEx, Vordergrund-/Capturezustand, letzte erfolgreiche native Platzierung/Z-Order-Änderung mit UTC und Ereignisursache sowie zuletzt tatsächlich am Overlay empfangene native Mausnachricht werden separat vermerkt. Vollbildentscheidung stammt unverändert vom bestehenden Service; Auto-Hide/Always-on-top aus ABM_GETSTATE ist globaler Shellzustand, keine verifizierte sekundäre Taskleistenmessung.
+Alle Einstellungsseiten übernehmen Benutzeränderungen sofort. Die Anwendung speichert ihre Einstellungen atomar unter `%LocalAppData%\AeroStart\settings.json`. Laden und unveränderte Auswahl erzeugen keinen Schreibvorgang. Bei Speicherfehlern erscheint ein Hinweis und die Oberfläche kehrt zum bestätigten Zustand zurück. Autostart wird getrennt direkt in der Registry verwaltet.
 
-`CachedUiaStartBounds` ist das vom laufenden Service verwendete UIA-Rechteck. `FreshUia` enthält eine neue Hintergrundabfrage aller originalen Startbutton-Kandidaten mit eigenen Anfangs-/Endzeitpunkten. Ein HWND kann inzwischen ungültig sein; Fehler werden festgehalten. Die Aufnahme ist nicht atomar und UIA ist ausdrücklich nicht zeitgleich mit dem nativen Zustand.
+| Seite | Einstellungen |
+| --- | --- |
+| Allgemein | AeroStart- oder Windows-Startmenü; Mit Windows starten |
+| Integration | Stabiler Hotkey oder experimentelle Windows-Taste; Startbutton-Overlays; Monitor für Tastaturaufrufe |
+| Darstellung | Windows-Designhinweis; Deckkraft; deaktivierter Mattglas-Schalter; Startmenü-Animation |
+| Funktionen | Systemwerkzeuge anzeigen; Task-Manager-Schnellzugriff |
 
-**Keine Klickempfängerbehauptung:** WindowFromPoint allein beweist keinen Mausempfänger. Kindfenster, Fensterregionen, per-pixel Alpha, HTTRANSPARENT, Mouse Capture und Zustandsänderungen können das Ergebnis beeinflussen. Die Diagnose sendet keine fremden WM_NCHITTEST-Nachrichten und simuliert keine Klicks. Eigene empfangene WM_LBUTTONDOWN/UP/DBLCLK bzw. WM_CAPTURECHANGED sind Empfangsbelege nur für das eigene HWND. Fehlender Empfang beweist nicht, welches andere Fenster den Klick erhielt.
+Binäre Schalter verwenden einen gemeinsamen Windows-11-inspirierten WPF-Toggle-Stil mit Beschriftung links, Schalter rechts und Tastaturbedienung. Auswahlgruppen bleiben RadioButtons. Einen Speichern-Button gibt es nicht mehr.
 
-Kostenbegrenzung: keine neue Polling-Schleife. Nur wenige native Trefferprüfungen pro bestehendem Reparaturereignis; volle automatische Aufnahmen maximal alle fünf Sekunden. Maximal eine Aufnahme und eine ausstehende UIA-Abfrage, keine Aufgabenwarteschlange. Native Detailaufnahme nur bei Auslösung, Datei/UIA im Hintergrund. Die automatische Diagnose beobachtet Trefferabweichungen bei vorhandenen Reparaturereignissen und einmalig langsame bzw. leere Scans; sie ist kein globaler Klicklogger. Wird die Abweichung erstmals nach Place erkannt, existiert nur der Nachher-Snapshot, kein rekonstruierter Vorher-Zustand.
+- Hell-/Dunkelmodus, Hochkontrast und gegebenenfalls Akzentfarbe folgen Windows.
+- Die Deckkraft lässt sich von 30 bis 100 Prozent in Fünferschritten einstellen. Texte und Icons bleiben deckend; Hochkontrast verwendet deckende Systemfarben.
+- Das Menü hat eine feste Größe von **650 × 610 WPF-Einheiten**. Die abschaltbare Öffnungs-/Schließanimation verändert nicht die Fenstermaße. Windows-Einstellungen für Oberflächenanimationen und Hochkontrast werden berücksichtigt.
+- **Mattglas ist zur Laufzeit gesperrt**, auch bei früher gespeichertem EIN. Der sichtbare, ausgegraute Schalter trägt den Hinweis „Experimentell – derzeit nicht verfügbar“. Es wird kein WinUI-Mattglas-Hintergrundfenster erzeugt. Transparenz ist kein Blur. Experimenteller Mattglas-Code und isolierte Prototypen bleiben im Repository erhalten; daraus folgt keine aktiv verfügbare Produktfunktion.
 
-Isolierter Format-/Guard-Test: `dotnet run --project ..\AeroStart.DiagnosticChecks\AeroStart.DiagnosticChecks.csproj`. Er verknüpft die Diagnosesourcen direkt und prüft native Inventur ohne Overlays, Snapshot-Serialisierung, Single-Flight, Rate-Limit und absichtlich blockierte UIA. Seine temporäre Logdatei wird entfernt; keine Overlays, Hooks oder simulierten Klicks. Er reproduziert keine echte Shell-Überdeckung.
+### Mit Windows starten
 
-Reproduktion/Auswertung:
-Zusätzlich werden fatale Integrationsfehler als `RecordType: integration-failure` unabhängig von UIA, Rate-Limit und einer laufenden normalen Diagnose gespeichert. Der Snapshot wird vor dem Overlay-Abbau erstellt und enthält ursprünglichen Exceptiontyp, HRESULT, gegebenenfalls Win32-Code, Stacktrace, Operation und auslösendes Ereignis. Der Fehlerstatus bleibt bis zum erneuten Aktivieren erhalten; ein weiterlaufender Scan darf ihn nicht durch Erfolg ersetzen. `DiscoveryDecisions` nennt pro Taskleisten-HWND die letzte Annahme/Ablehnung, Phase, Kandidatenzahl und gegebenenfalls Ausnahme. Auch nur teilweise fehlende Overlays lösen eine begrenzte automatische Aufnahme aus.
+Der Schalter liest beim Öffnen der Einstellungen den tatsächlichen Registry-Zustand. Ohne vorhandenen Eintrag ist Autostart aus. Einschalten erstellt oder aktualisiert ausschließlich:
 
-Gezielter Reproduktionsfall: Bei aktivierter Integration auf eine **freie Stelle der Taskleiste rechtsklicken**, Kontextmenü öffnen/schließen und beobachten, ob ein Overlay verschwindet. Monitor und Zeitpunkt notieren; danach zunächst nach `integration-failure` suchen, anschließend bei Bedarf `--diagnose-taskbar` auslösen. Kein automatisches Öffnen des Kontextmenüs durch den Testcode. Der Zusammenhang ist ein beobachteter Auslöser, noch keine bestätigte Fehlerursache.
+- Schlüssel: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- Wertname: `AeroStart`, Typ `REG_SZ`
+- Inhalt: `"vollständiger EXE-Pfad" --background`
 
-Bei exakt null gefilterten Treffern verwendet die Erkennung jetzt einen validierten **RawView-Zweitweg**. Derselbe begrenzte Durchlauf liefert Diagnose und Auswahl; keine zweite vollständige Baumsuche. Annahme nur bei vollständiger, fehlerfreier Traversierung mit genau einem sichtbaren Button, dessen AutomationId `StartButton` oder Klasse `Start` entspricht. Das frische Rechteck muss endlich/positiv und vollständig innerhalb von Taskleiste und Monitor liegen. PID, Sichtbarkeit, Taskleisten-/Monitorgeometrie und Monitorzuordnung müssen nach den UIA-Leseoperationen weiterhin stimmen. HWND 0 am UIA-Button ist zulässig. Mehrdeutige oder ungültige gefilterte Treffer werden nicht durch RawView umgangen. Keine geschätzten Ersatzrechtecke, keine Z-Order-Änderung und kein ungeprüftes Beibehalten alter Overlays.
+Wiederholtes Einschalten verwendet denselben Wert, Ausschalten entfernt nur diesen. Es werden keine Administratorrechte, geplanten Aufgaben oder zusätzlichen Dienste benötigt. Fehler werden angezeigt; ein fehlgeschlagener Schreibvorgang wird nicht als Erfolg übernommen. Nach Verschieben der Anwendung den Eintrag durch erneutes Einschalten aktualisieren. Die Registry-Funktion ist kein Installer: Die verwendete EXE und ihr Ausgabeordner müssen am eingetragenen Ort bestehen bleiben.
 
-`DiscoveryDecisions[].Details` enthält `Source` (Filtered/RawView), `FilteredCandidateCount` sowie beim Zweitweg `RawCandidateCount`, `SelectionReason` und `Tree`. Die RawView-Elemente enthalten AutomationId, Klasse, ControlType, natives HWND, IsOffscreen/IsEnabled, Bounds und Index/ParentIndex/Depth. Die spätere UIA-Ergänzung liefert separat `FreshUia[].ZeroMatchRawTree` und `RawSelection`; sie ist nur Diagnose und keine Service-Annahme. Keine Namen/Fenstertitel. Limits: 128 Elemente, zwölf Ebenen und 250 ms zwischen Provideraufrufen. Bei `Truncated` oder `Error` wird der Zweitweg abgelehnt; einzelne UIA-Aufrufe können weiterhin blockieren. Die Aufnahmen sind zeitlich getrennt.
+## Starten, Tray und Bedienung
 
-Wird ein vorhandenes Overlay wegen fehlender akzeptierter Discovery-Zuordnung geschlossen, enthält `DiscoveryDecisions` zusätzlich `Existing overlay removed` mit HWND, bisherigen Rechtecken, StillValid, Ereignisursache und ursprünglicher Discovery-Entscheidung. Diese Erweiterung dokumentiert nur die bestehende Entfernung; sie hält kein ungeprüftes Overlay fest und führt keine Z-Order-Korrektur ein.
+| Aufruf | Verhalten |
+| --- | --- |
+| `AeroStart.exe` | Einstellungen öffnen |
+| `AeroStart.exe --background` | Im Infobereich starten, ohne Menü-/Einstellungsfenster |
+| `AeroStart.exe --menu` | Ausgewähltes Startmenü öffnen |
+| `AeroStart.exe --diagnose-taskbar` | Vorhandene Taskleisten-Diagnose auslösen |
 
-1. Neu gebaute Version starten, Integration aktivieren; einmal `--diagnose-taskbar` als gesunde Vergleichsaufnahme auslösen.
-2. Normal weiterarbeiten, insbesondere Fokuswechsel/Win+D/Explorer-Layoutwechsel; beim sporadischen Fehler Zeitpunkt und Monitor notieren und manuell aufnehmen. Falls kein Fehler mehr sichtbar ist, nicht als Fehleraufnahme interpretieren.
-3. Passende JSONL-Zeile anhand UTC/Phase wählen: Overlay-/Treffer-Root-HWND, überlappende Kandidaten und ihre Z-Indizes mit Taskleistenbesitzer/Topmost vergleichen. Vorher-/Nachher-Zustand und letzte erfolgreiche Änderung beachten.
-4. Frische UIA-Geometrie gegen gecachte/native Bounds vergleichen, dabei UIA-Zeitversatz und Vollbild-/Hidezustand berücksichtigen. Eigene Mausnachricht nur zeitlich passend zum beobachteten Klick auswerten.
-5. Erst diese Daten einschließlich Vergleichsaufnahme erlauben eine gezielte Ursachenhypothese und anschließend eine Korrektur. Build und gesunde Snapshots beweisen keine behobene Shellrace.
+Das Tray-Icon bleibt nach dem Schließen der Einstellungen aktiv und wird bei einem Explorer-Neustart erneut angemeldet. Doppelklick öffnet die Einstellungen. Rechtsklick bietet Menüöffnung, Einstellungen, Aktivieren/Deaktivieren und **Beenden**; im Release-Build zusätzlich die temporäre Windows-Tasten-Diagnose.
 
-Abnahme des RawView-Fixes: Auf jedem Taskleistenmonitor mindestens zehnmal das Kontextmenü einer freien Stelle öffnen/schließen, anschließend AeroStart am Button öffnen/schließen. Vorher/nachher manuell aufnehmen: Bei akzeptiertem RawView-Treffer muss das vorhandene Overlay-HWND zugeordnet bleiben; `Source: RawView`/`SelectionReason` mit `Outcome: Accepted` vergleichen, sofern der Nulltreffer reproduziert wurde. Zusätzlich Vollbild/Alt+Tab, Auto-Hide, DPI-/Layoutwechsel, Deaktivierung und vorhandene Hotkeys prüfen. Ein synthetischer Test beweist keine erfolgreiche reale Kontextmenü-Abnahme. Bei absichtlich unvollständigen/mehrdeutigen Daten weiterhin keine Annahme erwarten.
+**Beenden** entfernt die von AeroStart verwalteten Hooks, Hotkeys und Overlays. Pro Benutzer und Sitzung wird eine Instanz verwendet; weitere Starts leiten entsprechende Aufrufe an sie weiter. Bei deaktiviertem AeroStart oder ausgewähltem Windows-Menü verwendet die Menüaufruflogik das native Windows-Startmenü.
 
-### Positionsdiagnose nach Taskleisten-Rechtsklick
-Startbutton-Erkennung und visuelle Nachbarreferenz sind getrennt: Ein gültiger RawView-Startbutton konnte bisher weiterhin mit einer leeren gefilterten Appid-Nachbarliste kombiniert werden. Das bisherige Ergebnis 0 veränderte nur die Logo-/Hovertranslation, auch wenn das native Startbuttonrechteck unverändert blieb. Fehlende Referenz wird jetzt als nicht messbar statt als gemessene Null behandelt. Filtered und RawView verwenden dieselbe Nachbarformel `2*firstCenter-secondCenter-startCenter`; der vorhandene vollständige RawTree wird wiederverwendet. Bei fehlenden gefilterten Referenzen erfolgt eine begrenzte RawView-Nachbarmessung. Keine Änderung der RawView-Startbuttonauswahl und keine feste Pixelkorrektur.
+### Tastatur im Menü
 
-`TaskbarTarget.Position` / `PositionEvidence` enthält DetectionPath, Monitor, MonitorBounds, DPI sowie Filtered-/RawView-Offset in physischen Pixeln und die beiden Appid-Referenzen mit Rechtecken. Discovery-Details sind unter `Detection` und `Position` gruppiert. Eine zuverlässige vorherige Referenz wird bei kurzfristig fehlender Messung nur für exakt dieselbe HWND/PID/Taskleisten-/Startbutton-/Monitor-/DPI-Geometrie weiterverwendet (`PreviousMeasuredSameGeometry`). Bei echter Geometrieänderung wird sie verworfen; neue zuverlässige Messungen werden angewendet.
+- Beim Öffnen erhält das Suchfeld den Fokus.
+- Pfeil hoch/runter wählt Treffer, Enter startet die Auswahl; Doppelklick startet ebenfalls.
+- Escape leert zuerst die Suche und schließt bei leerer Suche das Menü. Geöffnete Flyouts haben eigene Schließ-/Fokusbehandlung.
+- Tab ermöglicht die Navigation zwischen Bedienelementen; Toggles sind mit der Leertaste bedienbar.
 
-Automatische `RecordType: position-change`-Datensätze entstehen bei Änderungen von Geometrie, Suchpfad, Offset oder Referenzen (auch initial), ohne Polling und ohne UIA-Nachabfrage im Schreiber. Vorher/Nachher enthalten Scan-ID, Ereignisursache, UIA-Rechteck, berechneten und angewendeten Offset sowie `LastVisualPlacement`: tatsächlich verwendete DpiScaleX/Y, DIP-Fenstergröße, physische/DIP-Translation, finales natives Overlayrechteck und beabsichtigte physische Visualmitte. Dieselben Felder sind in manuellen Aufnahmen vorhanden. Das native Klickrechteck ist nicht mit der verschobenen sichtbaren Hoverfläche gleichzusetzen.
+### Windows-Taste: bekanntes experimentelles Problem
 
-Abnahme: je Monitor vor und nach dem Rechtsklick manuell aufnehmen und `position-change` vergleichen. Bei identischen Nachbarrechtecken müssen beide Pfade denselben Offset liefern; native Bounds, DPI-Umrechnung und Visualmitte dürfen nicht springen. Fehlende Referenzen müssen ausdrücklich erkennbar sein. Zusätzlich echte Layout-/DPIwechsel testen, damit keine alte Geometrie übernommen wird. Reale Shellsequenzen sind nicht durch reine Geometrietests nachgewiesen.
+**Stabil:** Strg+Alt+Leertaste ruft das Menü beim Loslassen der Leertaste auf. Die einzelne Windows-Taste bleibt unverändert. Ein anderweitig belegter Hotkey oder Hookfehler wird in den Einstellungen angezeigt; das Tray bleibt als Alternative verfügbar.
 
-### Taskleistenbutton: visuelle Zustände
-Normal erhält das eigene WPF-Fenster eine schwarze Hintergrundfläche mit Alpha 1/255 (`#01000000`); Button-/Templatefläche bleiben transparent und die HTCLIENT-Verarbeitung unverändert. Keine zusätzliche Kachel/Rahmenfläche. Die vorhandene 40-DIP-Hoverfläche mit Rundung 4 und das normale 24-DIP-Logo behalten ihre Geometrie/Position. Hervorhebung ausschließlich nach `IsMouseOver || IsStartMenuOpen`, ohne eigene Active-/Pressed-Hintergrundfarbe. Bei offenem Menü betrifft dies den Button des Menümonitors; MouseLeave verändert die Hervorhebung dann nicht.
+**Experimentell:** Die alleinige linke oder rechte Windows-Taste soll AeroStart beim Loslassen umschalten, sofern AeroStart aktiv und als Menü ausgewählt ist. Die Gestenlogik reicht Win-Kombinationen wie Win+E, Win+R und Win+D weiter; dies ist keine Garantie für jede Shell-, Remapper- oder Sitzungskonfiguration.
 
-Hoveropacity animiert mit 80 ms ein und 140 ms aus. Pressed animiert nur das Logo zentriert auf 80 Prozent und dunkleres Blau (65 ms); Release/LostCapture/Leave animiert in 110 ms zurück auf den ursprünglichen Farbverlauf und normale Größe. Unterbrechungen starten am aktuellen Animationswert, die Zielwerte sind zugleich Basiswerte; keine Timer oder Polling. Windows-Abschaltung von Clientanimationen/Hochkontrast deaktiviert die Übergänge. Hide/Close/Deaktivierung setzen eigene visuelle Zustände zurück. Screenshotabgleich ist eine Annäherung, keine pixelgenaue Vermessung der nativen Animation.
+**Bekannter Fehler im Release-Build:** Insbesondere nach Explorer-Neustart kann die einzelne Windows-Taste sporadisch das native Startmenü, AeroStart oder beide auslösen. Der Fehler ist nicht behoben. Erfolgreiches `SendInput` beweist nicht die erfolgreiche Unterdrückung der Shell-Aktion. Erhöhte Anwendungen/UIPI, fremde Hooks, Remotedesktop und ein von Windows nach Timeout entfernter Hook sind weitere Grenzen des Verfahrens. Es werden keine Administratorrechte oder dauerhaften Tastenzuordnungen angefordert. Für zuverlässigere Bedienung den stabilen Hotkey oder das Tray verwenden.
 
-Manuelle Abnahme je Monitor:
-1. Normal ohne Maus: nur Logo, keine Kachel; auch die transparente Fläche an Rändern muss echte Mausereignisse empfangen.
-2. Hover ein/aus: bisherige Größe/Rundung, weiches Ausblenden.
-3. MouseDown/MouseUp: zentriert kleiner/dunkler und weich zurück, auch bei schon geöffnetem Menü.
-4. Menü offen und Maus außerhalb: Hoverfläche bleibt unverändert; Enter/Leave erzeugt keine Hintergrundänderung.
-5. Menü schließen außerhalb: Ausblenden; schließen bei Maus darüber: weiterhin Hover.
-6. Schnelle Klicks/Doppelklicks, Leave während Down, Captureverlust und schnelles Öffnen/Schließen: kein verkleinertes Logo bleibt hängen.
-7. Menü per Hotkey/Tray öffnen und zwischen Monitoren wechseln: nur zugehöriger Button aktiv. Integration deaktivieren: keine verbleibenden Zustände.
+## Taskleiste, mehrere Monitore und Grenzen
 
-Der isolierte WPF-Test prüft Zustands-/Animationszielwerte und schnelle Wechsel, nicht die tatsächliche native Mauszustellung durch vollständig transparente Fensterpixel. HTCLIENT allein ist kein Beweis dafür.
+Optionale Startbutton-Overlays werden auf erkannten primären und sekundären Taskleisten verwaltet. AeroStart verwendet eigene Fenster über eindeutig erkannten Windows-Startbuttons; native Buttons und Explorer werden nicht gepatcht oder ersetzt. Nicht eindeutig erkannte beziehungsweise ausgeblendete Buttons werden ausgelassen. Deaktivieren der Integration entfernt die Overlays. Der bestätigte experimentelle X-Abgleich bleibt `entry.Target.VisualOffsetX - 2`.
 
-#### Nativer Alpha-Befund und ausstehende Taskleistenabnahme
-Die untersuchten Diagnosen zeigen drei sichtbare Overlays mit `WS_EX_LAYERED`, ohne `WS_EX_TRANSPARENT`, bei DPI 168. Mittelpunkt-Treffer auf eigenen HWNDs belegen nicht die Randbereiche. `AllowsTransparency=true` und Alpha 0 außerhalb von Logo/Hover lassen dort den darunterliegenden Windows-Startbutton sichtbar; WPF-HitTesting verhindert die native Alpha-Durchlässigkeit nicht.
+Implementiert sind:
 
-Live auf dem Windows-Desktop geprüft: `dotnet run --project ..\AeroStart.NativeAlphaChecks\AeroStart.NativeAlphaChecks.csproj`. Der separate Test verwendet das Produkt-Button-Template zwischen zwei eigenen Fenstern und prüft vier Eckpunkte. Bei Alpha 0 treffen `WindowFromPoint` und per `SendInput` zugestellte echte `WM_LBUTTONDOWN/UP` ausschließlich das untere Testfenster. Bei Alpha 1 treffen sie ausschließlich das obere Fenster; genau ein WPF-Click entsteht je Paar, das untere Fenster erhält keine Klicknachrichten. `WS_EX_TRANSPARENT` ist dabei nicht gesetzt. Es werden keine Taskleistenklicks simuliert oder Explorer-Hooks installiert. Dieser Prüfstand liegt wie die anderen Diagnosetests außerhalb des Projekt-Repositorys.
+- Monitorwahl für Tastaturaufrufe: Mauszeiger, Hauptmonitor oder aktives Fenster.
+- Verankerung am angeklickten Startbutton; erneuter Klick bei offenem Menü auf demselben Monitor schließt, auf einem anderen Monitor öffnet dort.
+- Physische Bildschirmkoordinaten einschließlich negativer Positionen, PerMonitorV2 und DPI-Umrechnung.
+- Begrenzung auf die Arbeitsfläche und Berücksichtigung erkannter Taskleistenkanten; Erneuerung nach Explorer-, Anzeige- und Taskleistenereignissen.
 
-**Noch kein Nachweis exklusiver Klickzustellung auf der echten Taskleiste:** Die minimale Alpha-Korrektur ist bis zur manuellen Abnahme ein Reparaturkandidat. Auf allen drei Monitoren Normal-/Hover-/Menü-offen-/Pressed-Zustand, vier Ecken, Ränder, Logozwischenräume, schnelle Klicks und Release/Leave prüfen. Auch nach Themewechsel prüfen, da `ApplyAppearance` die Alpha-Fläche wiederherstellt. AeroStart muss allein reagieren; Windows-Start darf nicht zusätzlich öffnen. Eigene empfangene MouseDown-/MouseUp-Nachrichten mit Zeitpunkt/Monitor abgleichen; WindowFromPoint allein genügt nicht. Bei verbleibender Durchleitung anhalten und Befund dokumentieren, keine weiteren Workarounds ergänzen.
+**Keine pauschale Multi-Monitor-Kompatibilitätszusage:** Gemischte DPI, Monitorwechsel/-anschluss, Auto-Hide, Vollbild und besondere Shell-Konfigurationen müssen in der jeweiligen Windows-Sitzung geprüft werden. Die vollständige visuelle Abnahme aller Kombinationen steht aus. Auf Arbeitsflächen kleiner als das feste Menü ist vollständige Sichtbarkeit nicht gewährleistet. Windows-Shell-Geometrie kann nach Explorer-Neustart variieren. Automatisierte Geometrietests ersetzen keine reale Klick-, Vollbild- oder DPI-Sichtprüfung.
 
-**Optische Grenze:** Alpha 1/255 ist nahezu unsichtbar und verdeckt das originale Startlogo nicht. Ein optisch doppeltes beziehungsweise durchscheinendes Logo wird damit nicht grundsätzlich behoben. Eine garantierte optische Abdeckung erfordert eine hinreichend deckende Fläche oder einen anderen Ansatz; beides ist hier bewusst nicht implementiert. Keine Änderungen an RawView, VisualOffset, DPI, Positionierung, Multi-Monitor- oder Z-Order-Logik.
+## Diagnose und Datenschutzgrenzen
 
-### Anwendungssymbol und Cache
-`Assets/AeroStart.ico` enthält 16, 20, 24, 32, 48, 64 und 256 Pixel. Dieselbe Datei ist konfigurationsunabhängig ApplicationIcon der EXE und WPF-Resource; Hauptfenster, Einstellungen/Taskleistenanzeige und Tray verwenden sie. Das Tray wählt die passende Systemgröße und erneuert sein HICON bei Explorer-/Anzeige-/DPI-Änderungen. Das vierteilige Taskleisten-Overlaylogo bleibt absichtlich unverändert. Quellen: SVG und WPF-Zeichnung unter Assets; Offlinegenerator: `Tools/Generate-AppIcon.ps1`. Vorschau: [AeroStart-preview.png](Assets/AeroStart-preview.png).
+- Die temporäre **Windows-Tasten-Diagnose** im Release-Tray zeigt maximal 30 abgeschlossene Einzel-Win-Einträge im Speicher: Zeiten, Gestenentscheidung, `SendInput`-Ergebnis und Menücallback. Sie speichert keine Datei und protokolliert keine anderen Tastenwerte oder Win-Kombinationen. Das nicht modale Fenster kann nach der Fehlerreproduktion aktualisiert und sein Text kopiert werden. Ein fehlender Eintrag allein beweist keinen Hook-Timeout.
+- Die separate **Taskleisten-Diagnose** kann unter `%LocalAppData%\AeroStart\Diagnostics\taskbar.jsonl` protokollieren, auch bei automatischen Fehler-/Positionsdiagnosen. Sie enthält unter anderem Fenster-/Prozessidentitäten, Geometrie und UIA-Befunde. Vor dem Teilen prüfen. Sie ist nicht mit dem flüchtigen Windows-Tastenpuffer gleichzusetzen.
+- Der Windows-Pin-Import liest Shell-Daten und verwendet vorübergehende Exportdateien. AeroStart ändert keine Windows-Pin-Datenbank.
 
-Bei altem Explorer-/Taskleistensymbol zuerst AeroStart vollständig über das Tray beenden, die richtige Debug-/Release-EXE starten und Explorer aktualisieren. Alte angeheftete Verknüpfungen lösen/neu anheften und gegebenenfalls deren separat eingestelltes Symbol korrigieren. Falls weiterhin veraltet: bei Gelegenheit ab-/anmelden. AeroStart löscht keine Windows-Iconcaches und verändert keine Shellregistrierung.
+## Aus Quellcode bauen
 
-### Konkrete Regressionstests
-1. Debug und Release jeweils getrennt starten: EXE in Explorer in kleinen/großen Ansichten, Einstellungen in Alt+Tab/Taskleiste, Tray und dessen Wiedererscheinen nach einem manuell ausgelösten Explorer-Neustart auf das A-Symbol prüfen.
-2. Integration aktivieren; an allen vier Rändern und in der Mitte des Startbuttonrechtecks mehrfach klicken. Nur AeroStart darf öffnen; Halten/Loslassen/Verlassen setzt die bestehende Logo-Skalierung zuverlässig zurück. Keine Tooltips; Fokus bleibt bis zum Menüaufruf unverändert.
-3. Zwischen Explorer, Browser, Einstellungen und Desktop wechseln, Fenster maximieren/minimieren und Win+D verwenden. Danach wiederholt auf jeden Monitorbutton klicken; kein Windows-Menü durch darüberliegenden Originalbutton.
-4. Links/zentriert, Auto-Hide, DPI-Wechsel, Monitore an-/abstecken und Explorer-Neustart testen. Keine alten Positionen/zusätzlichen Overlayfenster; UIA-Fläche und sichtbare Hoverfläche bleiben getrennt.
-5. Borderless und exklusives Vollbild pro Monitor sowie monitorübergreifend starten, Alt+Tab und Fokuswechsel auf anderen Monitor testen. Kein Overlay über Vollbild; nach Verlassen wieder korrekt positioniert. Übergänge ausdrücklich mitprüfen, da WinEvents asynchron sind.
-6. Integration während Scan/Vollbild deaktivieren, Windows-Standard wählen und AeroStart beenden: keine verbliebenen Overlays/Hooks; native Buttons normal benutzbar. Hotkeys, Tastaturmonitorwahl und bestehende Menüanimationen unverändert.
+Voraussetzungen:
 
-Build-/Ressourcenprüfungen sind automatisierbar; die Shell-, Maus- und Vollbildtests müssen in der tatsächlichen Windows-Sitzung ausgeführt werden. Sie sind nicht durch einen erfolgreichen Build nachgewiesen.
+- Windows 11 x64; das Projekt zielt auf `net10.0-windows10.0.22621.0`.
+- .NET-10-SDK und eine passende Visual-Studio-Installation mit .NET-Desktopentwicklung; der Freeze wurde mit Visual Studio Community 2026 gebaut.
+- NuGet-Wiederherstellung für Windows App SDK `1.7.250909003` und das referenzierte WinUI-Hostprojekt. Diese Abhängigkeiten bleiben trotz deaktiviertem Mattglas enthalten.
 
-Manuell prüfen: Option ein-/ausschalten und speichern, alle Monitore mit Taskleisten, links/zentriert ausgerichtete Buttons, gemischte DPI, Monitor an-/abstecken, geänderte Skalierung, Explorer-Neustart, Auto-Hide sowie obere/seitliche Taskleisten soweit vom System bereitgestellt. Menü auf gleichem Monitor schließen und auf anderem Monitor öffnen, dabei Tastaturmonitorwahl separat kontrollieren. Vollbild darf keine dauerhaft darüberliegenden AeroStart-Buttons haben. Nach Tray-Deaktivierung und Beenden müssen native Buttons wieder normal erreichbar sein. Buildprüfung ersetzt keine tatsächliche Taskleisten-Laufzeitprüfung.
+`AeroStart.slnx` öffnen und Debug oder Release für x64 bauen. Für Kommandozeilen-Builds **Visual-Studio-MSBuild** verwenden; ein reiner `dotnet build` kann an den benötigten PRI-/WinUI-Buildaufgaben scheitern.
 
-### Manuelle Prüfung des Hintergrundbetriebs
-1. Ohne Argument starten, Einstellungen schließen: Tray muss bleiben; Doppelklick öffnet Einstellungen erneut.
-2. Per Tray beenden, mit `--background` starten: keine Fenster, Tray und Hotkey vorhanden.
-3. Zweite Instanz normal bzw. mit `--menu` starten: vorhandene Instanz reagiert, kein zweites Tray-Icon.
-4. Optionen speichern und neu starten: Auswahl bleibt erhalten; ausgeblendete Werkzeuge öffnen nicht, deaktivierte Animation zeigt sofort.
-5. Windows-Standard und Tray-Deaktivierung prüfen; Windows-Taste muss unverändert funktionieren.
-6. Maus-/Hauptmonitor-/Aktivfensterwahl mit mehreren Monitoren prüfen; Einstellungen und Tray nach Windows-Designwechsel kontrollieren.
+In einer Visual-Studio-Developer-PowerShell aus dem Repositoryordner:
 
-## Umfang
-- Alphabetische, flache Liste von `.lnk`- und `.url`-Einträgen aus den Startmenü-Ordnern für Benutzer und alle Benutzer
-- Suche über Name und ursprünglichen Ordner
-- Schnellzugriffe auf Benutzerordner, Dokumente, Bilder, Explorer, Systemsteuerung und Einstellungen
-- Seitliches Flyout „Systemwerkzeuge ›“ mit Geräte-Manager, Datenträgerverwaltung, Computerverwaltung, Diensten, Aufgabenplanung, Ereignisanzeige, Leistungsüberwachung, Firewall, Terminal und Netzwerkverbindungen
-- Sperren, Herunterfahren, Neustarten, Abmelden und Energiesparen mit Bestätigungsdialog für Energieaktionen
-- Rahmenloses Windows-7-inspiriertes Aero-Layout
-- Echte Programmicons aus EXE-/LNK-/URL-Dateien über die Windows-Shell, bedarfsgesteuert auf einem STA-Hintergrundthread geladen
-- Bis zu 512 gecachte Shell-Icon-Ergebnisse, eingefrorene WPF-Bilder und neutrales Ersatzsymbol bei fehlenden Icons; native Icon-Handles werden freigegeben
-- Automatischer Windows-App-Hell-/Dunkelmodus, dynamische Hover-/Fokusfarben und Symbole für Systemfunktionen
-- Windows-Akzentfarbe nur dann, wenn Windows sie für Titelleisten/Rahmen oder Start/Taskleiste aktiviert hat; sonst neutrale Grau-/Schwarztöne
-- Laufende Aktualisierung bei Windows-Designänderungen; Hochkontrastmodus mit Systemfarben
-- Persönlicher Header mit Windows-Anzeigenamen aus den Kontoinformationen und lokalem Windows-Kontobild, ersatzweise einem gezeichneten Avatar
-- Eigene systemabhängige Templates für Scrollbars, ScrollViewer, Textfelder, ComboBoxen, Kontext-/Energiemenüs und Tooltips, ohne helle Standardflächen im Dunkelmodus
+```powershell
+MSBuild.exe .\AeroStart.csproj /restore /t:Build /p:Configuration=Release /v:minimal
+.\bin\Release\net10.0-windows10.0.22621.0\win-x64\AeroStart.exe
+```
 
-## Suche und Tastatur
-Das Profilbild und der Anzeigename öffnen per Links- oder Rechtsklick das Kontomenü. Escape schließt bei geöffnetem Kontomenü zunächst nur dieses Flyout.
+Für Debug `Configuration=Debug` und den entsprechenden Ausgabeordner verwenden. Nicht nur die EXE isoliert kopieren: Der Build benötigt seine erzeugten Abhängigkeiten und Ressourcen. Dieses Prerelease stellt keinen getesteten Installer oder portablen Binärdownload bereit.
 
-Das Fenster bleibt unabhängig von Trefferzahl und Suchtext fest bei 650×610 WPF-Einheiten. Treffer beginnen oben, ungenutzte Listenfläche bleibt darunter frei. Das Suchfeld erhält beim Öffnen automatisch den Tastaturfokus. Ein eigener TextBox-Inhaltshost, eine 36 Einheiten hohe Suchleiste und einmaliges Padding halten Text und Cursor vollständig sichtbar und vertikal zentriert.
+## Tests und Prüfung
 
-Sobald das Suchfeld fokussiert oder der Suchtext geändert wird, schließen Kontomenü, Systemwerkzeuge-, Energie- und Suchfeld-Kontextmenü. Gesucht wird weiterhin in Programmname und ursprünglichem Ordner. Exakte Namen stehen zuerst; andere Treffer bevorzugen Hauptprogramme gegenüber anhand ihrer Namen erkennbaren Uninstallern, Hilfe-, Setup- und Wartungseinträgen. Diese Einordnung ist eine Heuristik: Hilfseinträge werden nicht ausgeblendet. Danach entscheiden Präfix-/Namensübereinstimmung und eine stabile alphabetische Sortierung.
+Die ausführbaren FeatureChecks liegen im Repository. Sie prüfen unter anderem alte Einstellungen, sofortige Persistenz, Fehler-Rücksetzung, Autostart in einer HKCU-Testsandbox, Task-Manager-Katalog/Visibility/Geometrie, Programmkontextaktionen, Windows-Pin-Verarbeitung und gesperrtes Mattglas. Die Tests starten keine Programme, keinen Explorer, keine UAC-Abfrage und installieren keine Tastatur-Hooks; Testfenster können kurz sichtbar werden.
 
-Der erste Treffer ist automatisch ausgewählt. Pfeil hoch/runter ändert die Auswahl, ohne den Suchfokus zum Weitertippen zu verlieren. Enter startet den ausgewählten Treffer. Escape entfernt zuerst den Suchtext und zeigt wieder alle Programme; erst bei bereits leerem Suchfeld wird das Menü ausgeblendet. Beim Ausblenden werden Suchtext, Filter, Auswahl und Flyouts unabhängig vom Schließweg zurückgesetzt, auch über Hotkey, Fokusverlust oder erfolgreichen Programmstart.
+```powershell
+MSBuild.exe .\Tests\AeroStart.FeatureChecks\AeroStart.FeatureChecks.csproj /restore /t:Build /p:Configuration=Release /v:minimal
+.\Tests\AeroStart.FeatureChecks\bin\Release\net10.0-windows10.0.22621.0\win-x64\AeroStart.FeatureChecks.exe
+```
 
-## Kontomenü
-Das Windows-11-inspirierte Flyout enthält Microsoft-Logo, Abmelden (mit bestehender Sicherheitsabfrage), das echte Windows-Kontobild beziehungsweise den neutralen Avatar, Anzeigenamen und „Mein Microsoft-Konto“. Es folgt automatisch dem Windows-Hell-/Dunkelmodus und dem Hochkontrastmodus. Eine E-Mail erscheint nur, wenn `NetUserGetInfo` für die aktuelle, SID-geprüfte Windows-Identität einen gültigen MicrosoftAccount-Prinzipal liefert. Lokale oder nicht lesbare Identitäten erhalten keine erfundene Adresse. Der Kontolink öffnet die Microsoft-Kontowebseite im Standardbrowser; es wird keine Anmeldung automatisiert.
+Dieselbe Prüfung ist für Debug möglich. Der zusätzliche Parameter `--autostart-live <vollständiger AeroStart.exe-Pfad>` testet ausdrücklich den echten HKCU-Run-Wert: Der vorherige eigene Wert wird gesichert und anschließend wiederhergestellt; fremde Werte bleiben unangetastet. Ohne diesen Parameter verwendet der Autostarttest eine isolierte Testsandbox. `--windows-pins` führt einen lesenden Live-Export der Windows-Pins aus.
 
-Microsoft-365-Abonnement und OneDrive-Kontingent sind ohne authentifizierte Cloud-Datenquelle nicht verlässlich verfügbar. Daher werden diese Zeilen nicht angezeigt; lokale OneDrive-Dateigrößen oder installierte Office-Anwendungen werden nicht als Cloud-Status ausgegeben. Es erfolgen keine zusätzlichen Cloud-Abfragen.
+Für den Freeze wurden Debug-/Release-Builds und FeatureChecks erfolgreich ausgeführt; ergänzende Taskleisten-DiagnosticChecks liefen in einer separaten lokalen Prüflösung und sind nicht Bestandteil der Quellarchive. Diese Ergebnisse belegen weder die Behebung des bekannten Windows-Tastenfehlers noch eine vollständige visuelle Freigabe aller Windows-/Monitor-Konfigurationen.
 
-Weitere Iconaktionen öffnen `ms-settings:yourinfo`, `ms-settings:accounts` und `%SystemRoot%\System32\netplwiz.exe`; „PC sperren“ verwendet `LockWorkStation`. Das Flyout bevorzugt die Position oberhalb des Profilbereichs; WPF verschiebt es bei fehlendem Platz in den sichtbaren Bildschirmbereich. Escape und Außenklick schließen es. Das Systemwerkzeuge-Popup behält sein bisheriges capturefreies Hover-Verhalten.
-
-## Animation und mehrere Monitore
-Öffnen animiert den Inhalt über einen `TranslateTransform` von 24 WPF-Einheiten unten nach oben und blendet ihn mit EaseOut in 180 ms ein. Schließen läuft umgekehrt in 120 ms. Fenstermaße und Layout werden nicht animiert. Richtungswechsel beginnen mit den aktuellen Animationswerten; veraltete Abschlussereignisse werden verworfen. Deaktivierte Windows-Oberflächenanimationen und Hochkontrast werden respektiert.
-
-`MainWindow.ShowAtScreenPoint(Point screenPoint)` öffnet auf dem Monitor dieses Punkts. `MainWindow.ShowAtAnchor(Rect startButtonBounds)` positioniert das Menü unmittelbar an einem später integrierten eigenen Startbutton. Beide Methoden sind auf dem WPF-UI-Thread aufzurufen; sämtliche Koordinaten sind **physische Bildschirm-Pixel**, nicht WPF-DIPs, einschließlich negativer Koordinaten links/oberhalb des Hauptmonitors. Die Monitorwahl erfolgt anhand des Punkts beziehungsweise der Ankermitte.
-
-Start und Hotkey verwenden zunächst den Mausmonitor. `MonitorFromPoint`, `GetMonitorInfo`, die Taskleistenfenster `Shell_TrayWnd`/`Shell_SecondaryTrayWnd` und `GetDpiForWindow` liefern Arbeitsfläche, Taskleistenkante und Zielskalierung. PerMonitorV2 ist im Anwendungsmanifest aktiviert. Wenn kein eigener Anker übergeben wurde, wird der echte Startbutton über Windows UI Automation gesucht; ist er nicht verfügbar, wird an der passenden Taskleistenkante ausgerichtet. Obere/seitliche Taskleisten werden berücksichtigt, die Position wird auf die Arbeitsfläche begrenzt. Eine automatisch ausgeblendete Taskleiste kann eine andere sichtbare Geometrie liefern.
-
-Die feste Größe bleibt 650×610 DIPs. Ist ein Monitor bei seiner Skalierung kleiner als das Menü, sind vollständige Sichtbarkeit und feste Größe gleichzeitig unmöglich; in diesem Fall wird die Position am Arbeitsflächenanfang begrenzt, ohne das Menü zu verkleinern. Keine Explorer-Patches, Hook-Injektionen oder Änderungen an Windows-Einstellungen.
-
-### Manuelle Laufzeitprüfung
-- Links-/Rechtsklick auf Bild und Name, Escape, Außenklick innerhalb/außerhalb des Hauptfensters sowie Tab-Navigation prüfen.
-- Hellen/dunklen Windows-Modus wechseln; Bild, Name und optionale E-Mail kontrollieren. Bei fehlenden Daten dürfen keine Microsoft-365-/OneDrive-Werte erscheinen.
-- Kontoeinstellungen und Kontolink öffnen; Abmelden/Sperren nur bewusst testen, da dies echte Windows-Aktionen sind.
-- Hotkey schnell mehrfach drücken, auch während laufender Animation. Danach Suche, Auswahl, zweistufiges Escape und Programmstart prüfen.
-- Maus auf jeden Monitor bewegen und Hotkey verwenden; insbesondere gemischte DPI, negative Monitorpositionen und zentrierten Startbutton prüfen.
-- Spätere Startbutton-Integration mit `ShowAtAnchor` prüfen, einschließlich oberer/seitlicher Taskleiste und begrenztem Bildschirmplatz.
-
-## Glas und Darstellung
-Das Fenster verwendet natives WPF-`WindowChrome` statt eines Layered Window. Das zweispaltige Windows-7-Layout bleibt erhalten; die dunklen Farben orientieren sich am Windows-11-Startmenü. Hintergrund, Header und rechte Spalte verwenden `#202020`, Programmliste und Popups `#242424`, Hover und Auswahl `#2C2C2C`. Rahmen und Scrollgriffe sind dezent dunkel. Im Dunkelmodus sind die Flächen deckend, ohne aufhellende Glasreflexionen oder Akzentmischungen; die Farbkonsistenz hat Vorrang vor Transparenz. Eine aktivierte Windows-Akzentfarbe bleibt für Fokusmarkierungen verfügbar.
-
-Im Hellmodus wird auf Windows 11 ab Build 22621 über dokumentierte DWM-APIs ein Acryl-Backdrop angefordert, sofern Windows-Transparenzeffekte aktiv sind. Glasrahmen und Programmliste nutzen dann halbtransparente Tönungen mit feinem Innenrand und schwacher Glasreflexion. Suchfeld, Scrollbar-Tracks und Popups bleiben deckend. Native Rundungen und Fensterschatten werden vom Desktop-Compositor verwaltet. Die Stärke der Hintergrundunschärfe bestimmt Windows.
-
-Bei abgeschalteten Windows-Transparenzeffekten, Hochkontrast, Remotesitzungen oder fehlender DWM-Unterstützung wird ein deckendes, zum Systemmodus passendes Design verwendet. Ältere Windows-Versionen erhalten ebenfalls diesen Fallback; undokumentierte Blur-Hacks werden nicht verwendet. Die Darstellung nativer Effekte hängt von Windows und der Grafik-/Sitzungskonfiguration ab.
-
-Die Programmliste ist virtualisiert und verwendet Recycling. Icons werden erst beim Anzeigen angefordert; langsame Shell-Erweiterungen blockieren nicht den UI-Thread. Der Cache gilt für die aktuelle Sitzung, nicht dauerhaft auf Datenträger.
-
-## Systemwerkzeuge
-„Systemwerkzeuge ›“ mit Zahnrad im Stil der rechten Menüspalte ersetzt den einzelnen Geräte-Manager. Das Flyout öffnet bei Hover oder Klick rechts neben dem Hauptmenü. Fehlt dort Platz, verwendet WPF die linke Platzierungsalternative und berücksichtigt den Bildschirmrand. Es bleibt nur offen, solange die Maus über dem Auslöser oder dem Flyout-Inhalt liegt. Beim Verlassen beider Bereiche beginnt ein Schließtimer mit 150 ms Übergangszeit; erneutes Betreten stoppt ihn. Hover über einen anderen Hauptmenüeintrag schließt das Flyout sofort und lässt dessen normale Hover- und Klickaktionen unverändert zu.
-
-Das Flyout verwendet ein echtes WPF-`Popup` mit `StaysOpen="True"` und Button-Einträgen statt eines mausfangenden Kontextmenüs. Trigger und Popup-Inhalt koordinieren eigene MouseEnter-/MouseLeave-Ereignisse über ihre getrennten Fenstergrenzen hinweg. Außenklick, Suchfokus, Suchtexteingabe, Ausblenden des Hauptmenüs oder ein Werkzeugklick schließen das Flyout ebenfalls. Escape folgt der zweistufigen Suchlogik. Der Werkzeugklick schließt zuerst und startet anschließend die Shell-Aktion. Bei fokussiertem Auslöser öffnen auch Rechts/Pfeil-ab die Liste; die Maus-Aufenthaltsregel bleibt dabei gültig.
-
-Die Einträge verwenden die vorhandenen dunklen Popup-/Hover-Templates und original geladene Windows-Iconbilder in einer festen 20×20-Iconspalte. Für MSC-Dateien werden bevorzugt deren eingebettete MMC-Iconbilder über die Windows-ImageList-APIs gelesen, danach die hinterlegten DLL-Ressourcen und Shell-Icons. CPL-Icons stammen aus den Control-Panel-Ressourcen, EXE-Icons aus der Shell. Für Windows Terminal wird zuerst das Icon der installierten AppsFolder-Anwendung angefordert. Der vorhandene STA-Icon-Worker und der Sitzungscache werden wiederverwendet; bei unlesbaren oder fehlenden Quellen erscheint ein gezeichnetes Ersatzbild, kein Unicode-Symbol.
-
-Gestartet wird ausschließlich per Windows-Shell: `devmgmt.msc`, `diskmgmt.msc`, `compmgmt.msc`, `services.msc`, `taskschd.msc`, `eventvwr.msc`, `perfmon.exe`, `wf.msc`, `wt.exe` und `ncpa.cpl`. Windows Terminal muss separat installiert sein. Nicht verfügbare Werkzeuge verwenden die bestehende Startfehlermeldung. Die Anwendung nimmt durch das Öffnen des Flyouts keine Systemänderungen vor.
-
-## Windows-Profil
-Der Anzeigename wird im Hintergrund bevorzugt über `GetUserNameEx(NameDisplay)` ermittelt, danach über `NetUserGetInfo` aus den lokalen Kontoinformationen. Die SID wird mit `WindowsIdentity` abgeglichen, damit kein anderes gleichnamiges Konto verwendet wird. Sind keine Anzeigenamendaten verfügbar, dient der Kontoname ohne Domänenpräfix als Fallback. Bis zum Laden erscheint „Benutzerkonto“.
-
-Das vorhandene Kontobild wird weiterhin über die SID-bezogenen Windows-`AccountPicture`-Registryzuordnungen und lokalen Kontobildordner ermittelt. Die Registry wird ausschließlich lesend geöffnet. Lesbare PNG-/JPEG-/BMP-Kontobilder werden verkleinert dekodiert und ohne dauerhafte Dateisperre angezeigt. Fehlen die Zuordnungen bzw. ein lesbares Bild oder fehlen Zugriffsrechte, erscheint ein neutraler Avatar. Es werden keine Bilder heruntergeladen und keine Kontoeinstellungen geändert.
-
-## Bewusste Einschränkungen (v0.1)
-- **Kein** Ersetzen des originalen Windows-Startbuttons und **kein** Abfangen der einzelnen Windows-Taste
-- Keine UWP-/MSIX-App-Erfassung (nur Startmenü-Shortcuts)
-- Keine automatische Unterscheidung von Hauptprogramm und Hilfswerkzeug; alle Shortcuts bleiben zugänglich
-- Kein Autostart, kein Trayicon, keine Multi-Monitor-Unterstützung
-- Keine pixelgenaue Windows-7-Aero-Replik; moderne DWM-Effekte statt einer Nachbildung des alten Compositors
-- Auf manchen Systemen kann die globale Tastenkombination bereits belegt sein
-
-## Datenschutz und Systemeingriffe
-Keine Telemetrie, keine Registry-Patches, keine Explorer-Injektion, keine Systemdateiänderungen und keine externen Pakete. Die Anwendung liest Startmenü-Verknüpfungen und Windows-Designeinstellungen, lädt Icons über die Shell und registriert einen normalen Hotkey. DWM-Attribute werden ausschließlich für das eigene Fenster gesetzt. Energieaktionen verwenden Windows-Bordmittel.
-
-## Hinweis zum Testen
-Die Energieoptionen führen nach Bestätigung **echte** Systemaktionen aus. Vorher Arbeit speichern.
+Vor produktiver Nutzung insbesondere Hell-/Dunkelmodus, Tastaturnavigation, Autostartpfad, Task-Manager-Aufrufe, mehrere Monitore, DPI-Wechsel und Explorer-Neustart in der eigenen Umgebung prüfen. Die isolierten Mattglas-Prototypen im Tests-Verzeichnis sind Entwicklungsartefakte, keine freigeschalteten Anwendungsfunktionen.
