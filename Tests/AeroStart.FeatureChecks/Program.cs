@@ -1,4 +1,4 @@
-using AeroStart.Models;
+﻿using AeroStart.Models;
 using AeroStart.Services;
 using System.ComponentModel;
 using System.IO;
@@ -451,7 +451,7 @@ internal static class Program
             var eventArgs = (System.Windows.Controls.ContextMenuEventArgs)Activator.CreateInstance(typeof(System.Windows.Controls.ContextMenuEventArgs), flags, null, [container, true], null)!;
             typeof(AeroStart.MainWindow).GetMethod("Program_ContextMenuOpening", flags)!.Invoke(menu, [container, eventArgs]);
             var context = (System.Windows.Controls.ContextMenu)typeof(AeroStart.MainWindow).GetField("_programContextMenu", flags)!.GetValue(menu)!;
-            Check(context.Items.Cast<System.Windows.Controls.MenuItem>().Select(option => (string)option.Header).SequenceEqual(new[] { "Von Start lösen", "Als Administrator ausführen", "Dateispeicherort öffnen" }), "Actual context actions and pin label");
+            Check(context.Items.Cast<System.Windows.Controls.MenuItem>().Select(option => (string)option.Header).SequenceEqual(new[] { "Öffnen", "Von Start lösen", "Als Administrator ausführen", "Dateispeicherort öffnen" }), "Actual context actions and pin label");
             context.IsOpen = false;
             menu.ApplySettings(new AppSettings());
             Check(sidebar.Background is SolidColorBrush { Color.A: 0 }, "Sidebar remains untinted at full menu opacity");

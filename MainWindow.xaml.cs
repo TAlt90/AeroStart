@@ -103,7 +103,8 @@ public partial class MainWindow : Window
     }
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        _all = ProgramCatalog.Load();
+        _all = await ProgramCatalog.GetAsync();
+        if (_closed) return;
         if (!_menuRequested) ShowMenu();
         else ApplyFilter();
         var profile = await UserProfileService.LoadCurrentAsync();

@@ -10,15 +10,20 @@ internal sealed record ProgramCapabilities(string? Identity, ProcessStartInfo? A
 
 internal static class ProgramActions
 {
+    internal static bool IsPackaged(string path) => path.StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase);
+
     internal static string? Identity(string path)
     {
+        if (IsPackaged(path)) return path.ToUpperInvariant();
         try { return Path.IsPathFullyQualified(path) ? Path.GetFullPath(path).ToUpperInvariant() : null; }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return null; }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        { return null; }
     }
 
     internal static ProgramCapabilities Inspect(StartItem item)
     {
         var identity = Identity(item.Path);
+        if (identity is not null && IsPackaged(item.Path)) return new(identity, null, null);
         if (identity is null || !File.Exists(item.Path)) return new(null, null, null);
         var location = new ProcessStartInfo("explorer.exe", "/select,\"" + item.Path + "\"") { UseShellExecute = true };
         var extension = Path.GetExtension(item.Path);
@@ -75,7 +80,7 @@ internal static class ProgramActions
     {
         var items = results.ToList();
         var identities = pins.Select(Identity).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var pinned = items.Where(item => File.Exists(item.Path) && identities.Contains(Identity(item.Path) ?? ""))
+        var pinned = items.Where(item => (IsPackaged(item.Path) || File.Exists(item.Path)) && identities.Contains(Identity(item.Path) ?? ""))
             .DistinctBy(item => Identity(item.Path), StringComparer.OrdinalIgnoreCase)
             .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

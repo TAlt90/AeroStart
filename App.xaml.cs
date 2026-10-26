@@ -36,6 +36,7 @@ public partial class App : Application
                 return;
             }
             Settings.Load();
+            _ = ProgramCatalog.GetAsync();
             _shell = new ShellIntegrationService(Settings, GetMenu);
             _tray = new TrayService(() => InvokeMenu(false), ShowSettings, ToggleEnabled, Shutdown,
                 () => Settings.Current.Enabled

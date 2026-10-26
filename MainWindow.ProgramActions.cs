@@ -46,7 +46,8 @@ public partial class MainWindow
         e.Handled = true;
         if (sender is not ListBoxItem container || container.DataContext is not ProgramListEntry entry) return;
         var capabilities = ProgramActions.Inspect(entry.Item);
-        if (capabilities.Identity is null && capabilities.Location is null && capabilities.Administrator is null) return;
+        var packaged = entry.Item.Path.StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase);
+        if (!packaged && capabilities.Identity is null && capabilities.Location is null && capabilities.Administrator is null) return;
         CloseAllFlyouts();
         ProgramsList.SelectedItem = entry;
         var menu = new ContextMenu { PlacementTarget = container, Style = (Style)FindResource(typeof(ContextMenu)) };
@@ -65,6 +66,7 @@ public partial class MainWindow
             };
             menu.Items.Add(option);
         }
+        Add("Öffnen", () => Launch(entry.Item.Path));
         if (!entry.IsWindowsPin && capabilities.Identity is { } identity)
         {
             var pinned = _menuSettings.PinnedPrograms.Any(path => StringComparer.OrdinalIgnoreCase.Equals(ProgramActions.Identity(path), identity));

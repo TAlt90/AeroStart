@@ -112,6 +112,7 @@ public partial class MainWindow
         FocusSearchBox();
 
         _ = RefreshWindowsPinsAsync();
+        _ = RefreshProgramCatalogAsync();
 
         bool shouldAnimate =
             !wasVisible ||
@@ -123,6 +124,17 @@ public partial class MainWindow
 
         if (!wasVisible)
             UncloakAfterRender();
+    }
+
+    private async Task RefreshProgramCatalogAsync()
+    {
+        var refresh = ProgramCatalog.RefreshAsync();
+        if (refresh is null) return;
+        var items = await refresh;
+        if (_closed || items.Count == 0) return;
+        if (items.Count == _all.Count && items.Select(x => x.Path).SequenceEqual(_all.Select(x => x.Path), StringComparer.OrdinalIgnoreCase)) return;
+        _all = items;
+        if (!_isHiding && IsVisible && string.IsNullOrWhiteSpace(SearchBox.Text)) ApplyFilter();
     }
 
     private void UncloakAfterRender()
