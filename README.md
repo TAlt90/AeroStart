@@ -2,19 +2,9 @@
 
 Windows-7-inspiriertes Startmenü für Windows 11, entwickelt mit WPF, C# und .NET 10.
 
-> **Experimentelles Prerelease – keine stabile Freigabe.** Mattglas ist deaktiviert. Die experimentelle Umleitung der einzelnen Windows-Taste hat einen bekannten sporadischen Fehler im Release-Build. Für den regulären Aufruf Strg+Alt+Leertaste oder das Tray-Menü verwenden.
+> **Beta-Release v0.3.0-beta – keine stabile Freigabe.** Mattglas ist deaktiviert. Die Umleitung der einzelnen Windows-Taste (Experimentalmodus in den Einstellungen) hat einen bekannten sporadischen Fehler im Release-Build. Für den regulären Aufruf Strg+Alt+Leertaste oder das Tray-Menü verwenden.
 
-## Experimenteller Freeze
-
-Der eingefrorene Anwendungsstand ist über den annotierten Tag `experimental-freeze-2026-10-24` erreichbar, Commit `71bc1687547db6b675f55fd93962706d61404eea`.
-
-Das Prerelease verwendet diesen unveränderten Tag und bietet ausschließlich die von GitHub erzeugten Quellarchive an, keine fertigen Binärpakete oder Installer. Dokumentationskorrekturen auf dem gleichnamigen Branch können nach dem Freeze liegen; sie ändern weder den Tag noch dessen Quellarchiv. Diese README beschreibt den Funktionsumfang des eingefrorenen Anwendungscodes.
-
-## Experimentelles Update v0.2.1: Behebung des Render-Blitzes beim Öffnen
-
-Ab dem zweiten Öffnen des Menüs war kurz ein graues Rechteck beziehungsweise das vollständige Menü sichtbar, bevor die Öffnungsanimation begann. Diagnose: Der WPF-Zustand im ersten Frame war korrekt (`Y ≈ 610`, `Opacity 0`), der Blitz entstand erst bei der Präsentation des erneut angezeigten Layered Windows (`AllowsTransparency`). Beim ersten Öffnen trat er nicht auf. Die Ursache wurde nicht isoliert nachgewiesen; die Beschreibung ist die plausibelste Erklärung zu den Testergebnissen.
-
-Behebung in `MainWindow.MenuLifecycle.cs`: Beim Öffnen eines unsichtbaren Fensters wird es vor `Show()` per DWM-Cloaking (`DWMWA_CLOAK`) unsichtbar gehalten, DWM-Übergänge sind dabei deaktiviert. Ein einmaliger `CompositionTarget.Rendering`-Handler hebt das Cloaking auf, sobald mindestens vier Frames gerendert wurden und die Menü-Deckkraft mindestens 0,15 erreicht hat, spätestens nach 30 Frames. Positionierung, Taskleisten-Offset, DPI, Mehrmonitorbetrieb, Tastatur-Hook, Animationsdauer und Easing sind unverändert. Das Menü erscheint dadurch etwa 30–50 ms später. Visuell geprüft wurden wiederholtes Öffnen und Schließen sowie der Betrieb mit und ohne Animation; Debug-/Release-Builds und FeatureChecks liefen erfolgreich. Weitere Windows-/Monitor-Konfigurationen wurden nicht geprüft.
+Dies ist das erste Release. Es enthält den Render-Blitz-Fix beim Öffnen (DWM-Cloaking in `MainWindow.MenuLifecycle.cs`), Microsoft-Store-Apps im Programmkatalog (asynchron vorgeladen, beim Öffnen aktualisiert) und ein einheitliches Kontextmenü: Öffnen für alle Programme, Anheften auch für Store-Apps.
 
 ## Funktionen
 
@@ -23,7 +13,7 @@ Behebung in `MainWindow.MenuLifecycle.cs`: Beim Öffnen eines unsichtbaren Fenst
 - Alphabetische Programmliste aus den Startmenü-Ordnern des aktuellen Benutzers und aller Benutzer (`.lnk` und `.url`).
 - Suche nach Programmname und ursprünglichem Ordner. Exakte Namen werden bevorzugt; eine Namensheuristik ordnet Hilfs-, Setup- und Deinstallationseinträge nach Hauptprogrammen ein, ohne sie auszublenden.
 - Lokale Anheftungen unter **Angeheftet**, darunter **Alle Programme**. Suche filtert beide Abschnitte.
-- Rechtsklick: **An Start anheften / Von Start lösen**, **Als Administrator ausführen** für auflösbare EXE-Ziele sowie **Dateispeicherort öffnen**, soweit für den Eintrag verfügbar. UAC-Abbruch wird berücksichtigt.
+- Rechtsklick: **Öffnen** (alle Programme), **An Start anheften / Von Start lösen**, **Als Administrator ausführen** für auflösbare EXE-Ziele sowie **Dateispeicherort öffnen**, soweit für den Eintrag verfügbar. UAC-Abbruch wird berücksichtigt.
 - Programmicons werden über die Windows-Shell bedarfsgesteuert auf einem STA-Hintergrundthread geladen und für die Sitzung gecacht. Fehlende Icons erhalten ein Ersatzsymbol.
 
 ### Windows-Pins: ausschließlich lesender Import
